@@ -1,0 +1,19 @@
+Create the following dotnet user-secrets for PMT.Api:
+    Authentication:Google:ClientId          # Exactly what it says
+    App:Secret                              # The secret key of your app. 32byte minimum
+    App:Issuer                              # eg. https://www.api.example.com
+    App:Audience                            # eg https://www.example.com
+    App:AdminEmail                          # Used for seeding the db, creating initial user. eg firstname.lastname@gmail.com. Must be a gmail address!
+    ConnectionStrings:PMT_DB_CONNECTION     # Database connection string in user secrets, not in appsettings.json,
+                                            # eg. "Server=localhost;Database=PMT;User Id=sa;Password=<the_database_password>;Encrypt=False"
+
+Create the following anguler environment variables in PMT.client/environments/environment.ts and PMT.client/environment/environment.development.ts:
+    GOOGLE_CLIENT_ID: "put_your_google_client_id_here",
+    LOGIN_URL: "https://api.localhost:5015/login"
+    ACCESS_URL: "https://api.localhost:5015/access"
+    REFRESH_URL: "https://api.localhost:5015/refresh"
+    LOGOUT_URL: "https://api.localhost:5015/logout"
+
+Running the app
+    dotnet watch --project PMT.Api                                                      # From PMT
+    ng serve --ssl true --ssl-key "./server.key" --ssl-cert "./server.crt"              # From PMT.client, contains self signed keys for testing
