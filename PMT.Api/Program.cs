@@ -49,8 +49,7 @@ builder.Services.AddSwaggerGen(c => {
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement {
         {
-            new OpenApiSecurityScheme
-            {
+            new OpenApiSecurityScheme {
                 Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             new string[]{}
@@ -60,17 +59,10 @@ builder.Services.AddSwaggerGen(c => {
 #endif
 
 // === Database === //
-/*string connectionString = builder.Configuration.GetConnectionString("PMT_DB_CONNECTION")
-    ?? throw new InvalidOperationException("Connection string not found");*/
-
 var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "app.db");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options => {
     options.UseSqlite($"Data Source={dbPath}");
-    /*options.UseSqlServer(connectionString, sql => {
-        sql.MaxBatchSize(150);
-        sql.MigrationsAssembly("PMT.Data");
-    });*/
 });
 
 // === Authentication === //
@@ -95,8 +87,8 @@ builder.Services.AddAuthorization(options => {
     options.AddPolicy("CanModify", policy => policy.RequireAssertion(context => {
         // Make it so only admin, management, and the user themselves can modify a users' data
         string myId = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!;
-        var routeUserId = context.Resource is HttpContext httpContext ? httpContext.Request.RouteValues["userId"]?.ToString() : null;
-        return context.User.IsInRole("Admin") || context.User.IsInRole("Management") || routeUserId == myId;
+        var queryUserId = context.Resource is HttpContext httpContext ? httpContext.Request.Query["userId"].FirstOrDefault()!.ToString() : null;
+        return context.User.IsInRole("Admin") || context.User.IsInRole("Management") || queryUserId == myId;
     }));
 });
 

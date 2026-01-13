@@ -30,9 +30,9 @@ public class UsersController(UserService _userService, RoleService _roleService)
     }
     
     [Authorize(Policy = "CanModify")]
-    [HttpGet("users/{userId}")]
-    public async Task<IActionResult> GetUserData(int userId) {
-        Console.WriteLine("UsersController.GetUserData()");
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUserData([FromQuery] int userId) {
+        Console.WriteLine($"UsersController.GetUserData({userId})");
 
         UserDataDTO? user = await _userService.GetUserData(userId);
 
@@ -53,7 +53,7 @@ public class UsersController(UserService _userService, RoleService _roleService)
     }
 
     [Authorize(Roles = "Admin, Management")]
-    [HttpPost("users/new")]
+    [HttpPost("user/new")]
     public async Task<IActionResult> NewUser([FromBody] UserCreateDTO user) {
         Console.WriteLine("UserController.NewUser");
         List<Role> roles = (await _roleService.FindAll()).Where(r => user.Roles.Contains(r.Id)).ToList();
@@ -69,9 +69,9 @@ public class UsersController(UserService _userService, RoleService _roleService)
         return Ok();
     }
     
-    [HttpPost("users/demo_new")]
+    [HttpPost("user/demo_new")]
     public async Task<IActionResult> DemoNewUser([FromBody] UserCreateDTO user) {
-        Console.WriteLine("UserController.NewUser");
+        Console.WriteLine("UserController.DemoNewUser");
         List<Role> roles = (await _roleService.FindAll()).Where(r => user.Roles.Contains(r.Id)).ToList();
         
         User newUser = new() {
@@ -85,10 +85,11 @@ public class UsersController(UserService _userService, RoleService _roleService)
     }
 
     [Authorize(Policy = "CanModify")]
-    [HttpPut("users/update/{userId}")]
-    public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserDTO body) {
-        Console.WriteLine($"UserController.Update({body.Id}, {body.Name}, {body.Active}, {body.Roles})");
-        body.Id = userId;
+    [HttpPut("user/update")]
+    public async Task<IActionResult> UpdateUser([FromQuery] int userId, [FromBody] UpdateUserDTO body) {
+        Console.WriteLine($"UserController.UpdateUser({userId}, {body.Id}, {body.Name}, {body.Active}, {body.Roles})");
+        if (body.Id != userId) // Make sure nobody tries anything funny
+            return BadRequest();
         return Ok(await _userService.Update(body));
     }
 }
