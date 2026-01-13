@@ -15,12 +15,9 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
     }
 
     [Authorize(Policy = "CanModify")]
-    [HttpGet("requests/{userId}/{year}/{month}")]
-    public async Task<IActionResult> GetUserRequests(int userId, int year, int month) {
-        Console.WriteLine("ShiftsController.GetUserRequests(int userId, int year, int month)");
-
-        // Still have the 'minor' issue that somebody could just enter any userId other than their own and get access to their requests.
-        // Looking into that now
+    [HttpGet("requests")]
+    public async Task<IActionResult> GetUserRequests([FromQuery] int userId, [FromQuery] int year, [FromQuery] int month) {
+        Console.WriteLine($"ShiftsController.GetUserRequests(userId: {userId}, year: {year}, month: {month})");
 
         if (month < 1 || month > 12)
             return BadRequest(month);
@@ -29,16 +26,16 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
     }
 
     [Authorize(Policy = "CanModify")]
-    [HttpPut("requests/update/{userId}")]
-    public async Task<IActionResult> UpdateRequest(int userId, [FromBody] UpdateRequestDTO body) {
+    [HttpPut("requests/update")]
+    public async Task<IActionResult> UpdateRequest([FromQuery] int userId, [FromBody] UpdateRequestDTO body) {
         Console.WriteLine("ShiftController.UpdateRequest");
         return Ok(await _shiftService.UpdateShiftRequest(userId, body));
     }
 
     [Authorize]
-    [HttpGet("confirmed/{userId}/{year}/{month}")]
-    public async Task<IActionResult> GetConfirmedShifts(int userId, int year, int month) {
-        Console.WriteLine("ShiftsController.GetConfirmedShifts(int userId, int year, int month)");
+    [HttpGet("confirmed")]
+    public async Task<IActionResult> GetConfirmedShifts([FromQuery] int userId, [FromQuery] int year, [FromQuery] int month) {
+        Console.WriteLine($"ShiftsController.GetConfirmedShifts(userId: {userId}, year: {year}, month: {month})");
         if (month < 1 || month > 12)
             return BadRequest(month);
 
@@ -53,9 +50,9 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
         return Ok(await _shiftService.GetPlanningMonths());
     }
 
-    [HttpGet("planning/{year}/{month}")]
+    [HttpGet("planning")]
     [Authorize(Roles = "Admin, Management")]
-    public async Task<IActionResult> GetMonthPlanning(int year, int month) {
+    public async Task<IActionResult> GetMonthPlanning([FromQuery] int year, [FromQuery] int month) {
         Console.WriteLine("ShiftsController.GetConfirmedShifts(int userId, int year, int month)");
         if (month < 1 || month > 12)
             return BadRequest("Bad month " + month);
