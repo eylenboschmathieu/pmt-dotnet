@@ -52,4 +52,4 @@ jobs:
           app-name: 'pmt'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_B2E8C7E608614948B3EB19F75CE3F382 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_27CEB7AB6EEF4147BEB15AAF523EA750 }}
