@@ -52,6 +52,11 @@ public class UpdateRequestDTO {
     public bool IsRequested { get; set; }
 }
 
+public class OverviewDTO {
+    public List<DateOnly> Months { get; set; } = [];
+    public List<OverviewData> Users { get; set; } = [];
+}
+
 public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _roleRepo) {
     private static readonly Dictionary<TimeOnly, int> SHIFT_HOUR_INDICES = new Dictionary<TimeOnly, int> {
         { new TimeOnly(5, 0), 0 },
@@ -160,5 +165,24 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
 
     public async Task<bool> UpdateShiftPlanning(bool confirm, int shiftId) {
         return await _shiftRepo.ConfirmPlanningForShift(confirm, shiftId);
+    }
+
+    private List<DateOnly> GetLast12Months(DateOnly date) {
+        date = new DateOnly(date.Year, date.Month, 1);
+        return (from r in Enumerable.Range(1,12) select date.AddMonths(-r)).ToList();
+    }
+
+    public async Task<OverviewDTO> GetUserShiftOverview() {
+        DateOnly now = new(DateTime.Now.Year, 6, 1);
+        Console.WriteLine($"GetUserShiftOverview({now})");
+
+        var data = await _shiftRepo.GetOverviewData(now.AddDays(-1));
+
+        OverviewDTO dto = new() {
+            Months = GetLast12Months(now),
+            Users = data
+        };
+
+        return dto;
     }
 }

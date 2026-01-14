@@ -7,6 +7,12 @@ public class MonthsDTO {
     public bool Locked { get; set; }
 }
 
+public class OverviewData {
+    public string Name { get; set; } = null!;
+    public List<int> Hours { get; set; } = [];
+    public int Total { get; set; }
+}
+
 public interface IUserShiftRepository : IRepository<UserShift> {
     public ShiftTime[] GetShiftHours();
     public Task<List<IGrouping<DateTime, UserShift>>> GetRequestsForDay(DateOnly date);
@@ -18,4 +24,5 @@ public interface IUserShiftRepository : IRepository<UserShift> {
     public Task<bool> CreateRequest(int userId, DateTime shift);
     public Task<bool> DeleteRequest(int userId, DateTime shift);
     public Task<bool> ConfirmPlanningForShift(bool confirm, int shiftId);
+    public Task<List<OverviewData>> GetOverviewData(DateOnly date);
 }

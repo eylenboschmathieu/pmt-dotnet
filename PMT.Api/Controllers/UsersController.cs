@@ -41,7 +41,7 @@ public class UsersController(UserService _userService, RoleService _roleService)
 
     [Authorize(Roles = "Admin, Management")]
     [HttpGet("users/select")]
-    public async Task<IActionResult> UserSelect() {
+    public async Task<IActionResult> UserSelect() {  // Mostly for dropdown menus.
         Console.WriteLine("UserController.UserSelect()");
         IEnumerable<User> users = await _userService.FindSelect();
 

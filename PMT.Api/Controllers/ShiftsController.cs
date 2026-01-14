@@ -76,4 +76,12 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
         Console.WriteLine($"ShiftsController.UpdatePlanning({body.Confirm}, {body.ShiftId})");
         return Ok(await _shiftService.UpdateShiftPlanning(body.Confirm, body.ShiftId));
     }
+
+    [HttpGet("overview")]
+    [Authorize(Roles = "Admin, Management")]
+    public async Task<IActionResult> Overview() {
+        Console.WriteLine("ShiftsController.Overview()");
+
+        return Ok(await _shiftService.GetUserShiftOverview());
+    }
 }

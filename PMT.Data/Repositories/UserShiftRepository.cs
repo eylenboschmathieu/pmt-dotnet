@@ -1,3 +1,5 @@
+using System.Security.Cryptography.X509Certificates;
+
 using Microsoft.EntityFrameworkCore;
 
 using PMT.Data.Entities;
@@ -42,7 +44,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<IEnumerable<UserShift>> FindAllAsync() {
-        return await _dbContext.UserShifts.ToListAsync();
+        return await _dbContext.UserShifts.AsNoTracking().ToListAsync();
     }
 
     public async Task<UserShift?> FindByIdAsync(int id) {
@@ -58,15 +60,22 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
                 e.Confirmed)
             .Select(e => e.Shift)
             .OrderBy(e => e.From)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     public async Task<ICollection<MonthsDTO>> GetPlanningMonths() {
-        return await _dbContext.PlanningMonths.Select(e => new MonthsDTO { Date = e.Date, Locked = e.Locked } ).OrderByDescending(e => e.Date).ToListAsync();
+        return await _dbContext.PlanningMonths
+            .Select(e => new MonthsDTO { Date = e.Date, Locked = e.Locked } )
+            .OrderByDescending(e => e.Date)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
     public async Task<ICollection<DateOnly>> GetRequestMonths(int userId) {
-        return await _dbContext.UserShifts.Where(e => e.UserId == userId).Select(e => DateOnly.FromDateTime(e.Shift.From))
+        return await _dbContext.UserShifts
+            .Where(e => e.UserId == userId)
+            .Select(e => DateOnly.FromDateTime(e.Shift.From))
             .Distinct()
             .OrderByDescending(e => e)
             .ToListAsync();
@@ -77,6 +86,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             .Where(e => DateOnly.FromDateTime(e.Shift.From) == date)
             .Include(e => e.User).Include(e => e.User.Roles)
             .GroupBy(e => e.Shift.From)
+            .AsNoTracking()
             .ToListAsync();
     }
 
@@ -85,6 +95,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             .Where(e => e.UserId == userId && DateOnly.FromDateTime(e.Shift.From) == date)
             .Include(e => e.Shift)
             .OrderByDescending(e => e.Shift.From)
+            .AsNoTracking()
             .ToListAsync();
     }
 
@@ -160,5 +171,52 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             Console.WriteLine("Shift not found!");
 
         return false;
+    }
+
+    // Return overview data from {date}, going back 12 months
+    public async Task<List<OverviewData>> GetOverviewData(DateOnly date) {
+        DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddDays(-1);
+        DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
+
+        var query = await _dbContext.UserShifts
+            .Where(e => e.Confirmed)
+            .Join(_dbContext.Shifts, us => us.ShiftId, s => s.Id, (us, s) => new {
+                us.UserId,
+                Shift = s
+            })
+            .Join(_dbContext.Users, x => x.UserId, u => u.Id, (x, u) => new {
+                UserName = u.Name,
+                x.Shift.From,
+                x.Shift.To,
+            })
+            .Where(x => x.From >= from && x.To <= to).ToListAsync();
+
+        var grouped = query.GroupBy(x => new {
+                x.UserName,
+                x.From.Year,
+                x.From.Month
+            })
+            .Select(s => new {
+                s.Key.UserName,
+                Month = new DateOnly(s.Key.Year, s.Key.Month, 1),
+                Hours = s.Sum(us => (us.To - us.From.Date).Hours)
+            })
+            .ToList();     
+            
+        var start = new DateOnly(date.Year, date.Month, 1).AddMonths(1);
+        var months = (from r in Enumerable.Range(1,12) select start.AddMonths(-r)).ToList();
+
+        return grouped.GroupBy(g => g.UserName)
+            .Select(g => {
+                var hoursByMonth = g.ToDictionary(x => x.Month, x => x.Hours);
+
+                return new OverviewData {
+                    Name = g.Key!,
+                    Hours = months.Select(m => hoursByMonth.TryGetValue(m, out var h) ? h : 0).ToList(),
+                    Total = hoursByMonth.Sum(e => e.Value)
+                };
+            })
+            .OrderBy(u => u.Name)
+            .ToList();
     }
 }
