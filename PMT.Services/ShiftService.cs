@@ -1,8 +1,14 @@
+using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore;
 
 using PMT.Data.Repositories;
 
 namespace PMT.Services;
+
+public class ShiftHours {
+    public TimeOnly From { get; set; }
+    public TimeOnly To { get; set; }
+}
 
 public class LockMonthDTO {
     public DateOnly Date { get; set; }
@@ -58,21 +64,22 @@ public class OverviewDTO {
 }
 
 public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _roleRepo) {
-    private static readonly Dictionary<TimeOnly, int> SHIFT_HOUR_INDICES = new Dictionary<TimeOnly, int> {
-        { new TimeOnly(5, 0), 0 },
-        { new TimeOnly(8, 0), 1 },
-        { new TimeOnly(11, 0), 2 },
-        { new TimeOnly(14, 0), 3 },
-        { new TimeOnly(18, 0), 4 },
-    };
-
-    public ShiftTime[] GetShiftHours() {
-        return _shiftRepo.GetShiftHours();
+    public List<ShiftHours> GetShiftHours() {
+        return _shiftRepo.GetShiftHours().Select(sel => new ShiftHours {
+            From = sel.From,
+            To = sel.From.Add(sel.Duration)
+        }).ToList();
     }
 
     public async Task<List<UserRequestsDTO>> GetUserRequests(int userId, int year, int month) {
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var data = new List<UserRequestsDTO>(daysInMonth);
+
+        var hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
+            new {
+                Key = item,
+                Index = index
+            }).ToDictionary(e => e.Key, e => e.Index);
         
         for (int day = 1; day <= daysInMonth; day++) {
             var date = new DateOnly(year, month, day);
@@ -81,7 +88,7 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
             var flags = new bool[5];
 
             foreach (var userShift in userShifts) {
-                flags[SHIFT_HOUR_INDICES[TimeOnly.FromDateTime(userShift.Shift.From)]] = true;
+                flags[hours[TimeOnly.FromDateTime(userShift.Shift.From)]] = true;
             }
             
             data.Add(new UserRequestsDTO {
@@ -126,9 +133,14 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
             DayPlanningDTO dayPlanning = new(new DateOnly(year, month, day));
 
             var userShifts = await _shiftRepo.GetRequestsForDay(dayPlanning.Date);
+            var hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
+                new {
+                    Key = item,
+                    Index = index
+                }).ToDictionary(e => e.Key, e => e.Index);
 
             foreach (var userShift in userShifts) {
-                int index = SHIFT_HOUR_INDICES[TimeOnly.FromDateTime(userShift.Key)];
+                int index = hours[TimeOnly.FromDateTime(userShift.Key)];
                 
                 ShiftPlanning shiftPlanning = new() {
                     Volunteered = userShift.Where(e => !e.Confirmed).Select(e => new PlanningRequestDTO() {
@@ -178,10 +190,16 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
 
         var data = await _shiftRepo.GetOverviewData(now.AddDays(-1));
 
+        var totalRequested = await _shiftRepo.GetRequestedHoursForYear(now);
+
         OverviewDTO dto = new() {
             Months = GetLast12Months(now),
             Users = data
         };
+
+        foreach (var item in dto.Users) {
+            item.Requested = (int)totalRequested.GetValueOrDefault(item.Id, 0);
+        }
 
         return dto;
     }

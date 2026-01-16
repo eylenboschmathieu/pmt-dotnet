@@ -1,3 +1,5 @@
+using Humanizer;
+
 using PMT.Data.Entities;
 
 namespace PMT.Data.Repositories;
@@ -8,9 +10,11 @@ public class MonthsDTO {
 }
 
 public class OverviewData {
+    public int Id { get; set; }
     public string Name { get; set; } = null!;
-    public List<int> Hours { get; set; } = [];
+    public List<int> Confirmed { get; set; } = [];
     public int Total { get; set; }
+    public int Requested { get; set; }
 }
 
 public interface IUserShiftRepository : IRepository<UserShift> {
@@ -25,4 +29,7 @@ public interface IUserShiftRepository : IRepository<UserShift> {
     public Task<bool> DeleteRequest(int userId, DateTime shift);
     public Task<bool> ConfirmPlanningForShift(bool confirm, int shiftId);
     public Task<List<OverviewData>> GetOverviewData(DateOnly date);
+
+    // Get the requested hours of all active users for the last 12 months, starting from the month before {date}.
+    public Task<Dictionary<int, int>> GetRequestedHoursForYear(DateOnly date);
 }

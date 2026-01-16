@@ -1,5 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
-
 using Microsoft.EntityFrameworkCore;
 
 using PMT.Data.Entities;
@@ -8,16 +6,16 @@ namespace PMT.Data.Repositories;
 
 public class ShiftTime {
     public TimeOnly From { get; set; }
-    public TimeOnly To { get; set; }
+    public TimeSpan Duration { get; set; }
 }
 
 public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRepository {
     private static readonly ShiftTime[] ShiftHours = [  // We're storing hours in UTC time, so make sure the shift hours are in UTC time too
-        new ShiftTime { From = new TimeOnly(5, 0), To = new TimeOnly(8, 0) },
-        new ShiftTime { From = new TimeOnly(8, 0), To = new TimeOnly(11, 0) },
-        new ShiftTime { From = new TimeOnly(11, 0), To = new TimeOnly(14, 0) },
-        new ShiftTime { From = new TimeOnly(14, 0), To = new TimeOnly(18, 0) },
-        new ShiftTime { From = new TimeOnly(18, 0), To = new TimeOnly(5, 0) }
+        new ShiftTime { From = new TimeOnly(5, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(8, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(11, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(14, 0), Duration = new TimeSpan(4, 0, 0) },
+        new ShiftTime { From = new TimeOnly(18, 0), Duration = new TimeSpan(11, 0, 0) }
     ];
 
     public ShiftTime[] GetShiftHours() {
@@ -128,10 +126,10 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         Shift? shift = await _dbContext.Shifts.Where(e => e.From.Equals(date)).FirstOrDefaultAsync();
 
         if (shift is null) {
-            TimeOnly to = ShiftHours.Where(e => TimeOnly.FromDateTime(date) == e.From).Select(e => e.To).FirstOrDefault();
+            TimeSpan to = ShiftHours.Where(e => TimeOnly.FromDateTime(date) == e.From).Select(e => e.Duration).FirstOrDefault();
             shift = new Shift {
                 From = date,
-                To = date.Date + new TimeSpan(to.Hour, to.Minute, 0)
+                To = date.Add(to)
             };
             _dbContext.Shifts.Add(shift);
             await _dbContext.SaveChangesAsync();
@@ -185,6 +183,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
                 Shift = s
             })
             .Join(_dbContext.Users, x => x.UserId, u => u.Id, (x, u) => new {
+                x.UserId,
                 UserName = u.Name,
                 x.Shift.From,
                 x.Shift.To,
@@ -192,31 +191,54 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             .Where(x => x.From >= from && x.To <= to).ToListAsync();
 
         var grouped = query.GroupBy(x => new {
+                x.UserId,
                 x.UserName,
                 x.From.Year,
                 x.From.Month
             })
             .Select(s => new {
+                s.Key.UserId,
                 s.Key.UserName,
                 Month = new DateOnly(s.Key.Year, s.Key.Month, 1),
-                Hours = s.Sum(us => (us.To - us.From.Date).Hours)
+                Hours = s.Sum(us => (us.To - us.From).Hours)
             })
             .ToList();     
             
         var start = new DateOnly(date.Year, date.Month, 1).AddMonths(1);
         var months = (from r in Enumerable.Range(1,12) select start.AddMonths(-r)).ToList();
 
-        return grouped.GroupBy(g => g.UserName)
+        return grouped.GroupBy(g => new { g.UserId, g.UserName })
             .Select(g => {
                 var hoursByMonth = g.ToDictionary(x => x.Month, x => x.Hours);
 
                 return new OverviewData {
-                    Name = g.Key!,
-                    Hours = months.Select(m => hoursByMonth.TryGetValue(m, out var h) ? h : 0).ToList(),
+                    Id = g.Key.UserId,
+                    Name = g.Key.UserName!,
+                    Confirmed = months.Select(m => hoursByMonth.TryGetValue(m, out var h) ? h : 0).ToList(),
                     Total = hoursByMonth.Sum(e => e.Value)
                 };
             })
             .OrderBy(u => u.Name)
             .ToList();
+    }
+
+    public async Task<Dictionary<int, int>> GetRequestedHoursForYear(DateOnly date) {
+        DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddSeconds(-1);
+        DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
+
+        var start = new DateOnly(date.Year, date.Month, 1).AddMonths(1);
+        var months = (from r in Enumerable.Range(1,12) select start.AddMonths(-r)).ToList();
+
+        var data = await _dbContext.UserShifts
+            .Include(e => e.Shift)
+            .Where(e => e.User.Active && e.Shift.From >= from && e.Shift.To <= to).ToListAsync();
+            
+        return data.GroupBy(e => e.UserId)
+            .Select(sel => new {
+                UserId = sel.Key,
+                Hours = sel.Sum(sum => (sum.Shift.To - sum.Shift.From).Hours)
+            })
+            .ToDictionary(dict => dict.UserId, dict => dict.Hours);
+
     }
 }
