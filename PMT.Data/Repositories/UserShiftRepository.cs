@@ -126,10 +126,11 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         Shift? shift = await _dbContext.Shifts.Where(e => e.From.Equals(date)).FirstOrDefaultAsync();
 
         if (shift is null) {
+            
             TimeSpan to = ShiftHours.Where(e => TimeOnly.FromDateTime(date) == e.From).Select(e => e.Duration).FirstOrDefault();
             shift = new Shift {
-                From = date,
-                To = date.Add(to)
+                From = DateTime.SpecifyKind(date, DateTimeKind.Utc),
+                To = DateTime.SpecifyKind(date.Add(to), DateTimeKind.Utc)
             };
             _dbContext.Shifts.Add(shift);
             await _dbContext.SaveChangesAsync();

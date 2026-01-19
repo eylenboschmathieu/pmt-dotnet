@@ -13,7 +13,7 @@ public class UserCreateDTO {
 }
 
 [ApiController]
-public class UsersController(UserService _userService, RoleService _roleService) : ControllerBase {
+public class UsersController(IAuthorizationService _authorizationService, UserService _userService, RoleService _roleService) : ControllerBase {
 
     [Authorize(Roles = "Admin, Management")]
     [HttpGet("users")]
@@ -29,10 +29,14 @@ public class UsersController(UserService _userService, RoleService _roleService)
         }));
     }
     
-    [Authorize(Policy = "CanModify")]
-    [HttpGet("user")]
-    public async Task<IActionResult> GetUserData([FromQuery] int userId) {
+    [Authorize]
+    [HttpGet("user/{userId:int}")]
+    public async Task<IActionResult> GetUserData(int userId) {
         Console.WriteLine($"UsersController.GetUserData({userId})");
+
+        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        if (!authorized.Succeeded)
+            return Forbid();
 
         UserDataDTO? user = await _userService.GetUserData(userId);
 
@@ -66,7 +70,7 @@ public class UsersController(UserService _userService, RoleService _roleService)
             Active = true
         };
         await _userService.Create(newUser);
-        return Ok();
+        return Created();
     }
     
     [HttpPost("user/demo_new")]
@@ -81,15 +85,19 @@ public class UsersController(UserService _userService, RoleService _roleService)
             Active = true
         };
 
-        return Ok(await _userService.Create(newUser) is not null);
+        var u = await _userService.Create(newUser);
+        return Ok(u);
     }
 
-    [Authorize(Policy = "CanModify")]
-    [HttpPut("user/update")]
-    public async Task<IActionResult> UpdateUser([FromQuery] int userId, [FromBody] UpdateUserDTO body) {
+    [Authorize]
+    [HttpPatch("user/update/{userId:int}")]
+    public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserDTO body) {
         Console.WriteLine($"UserController.UpdateUser({userId}, {body.Id}, {body.Name}, {body.Active}, {body.Roles})");
-        if (body.Id != userId) // Make sure nobody tries anything funny
-            return BadRequest();
+
+        var authorized = await _authorizationService.AuthorizeAsync(User, body.Id, "CanModify");
+        if (!authorized.Succeeded)
+            return Forbid();
+
         return Ok(await _userService.Update(body));
     }
 }

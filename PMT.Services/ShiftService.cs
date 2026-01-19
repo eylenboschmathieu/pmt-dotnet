@@ -10,7 +10,7 @@ public class ShiftHours {
     public TimeOnly To { get; set; }
 }
 
-public class LockMonthDTO {
+public class LockMonthDTO {  // Lock/unlock a month in management/planning
     public DateOnly Date { get; set; }
     public bool Locked { get; set; }
 }
@@ -22,7 +22,7 @@ public class UpdateShiftPlanningDTO {
 
 public class UserRequestsDTO {  // A day of requested shifts
     public DateOnly Date { get; set; } 
-    public bool[] Shifts { get; set; } = [];  // List of 5 bools to dictate if a shift was requests, from first to last
+    public bool[] Shifts { get; set; } = [];  // Array of 5 bools to dictate if a shift was requests, from first to last
 }
 
 public class DateTimeSpan {
@@ -46,14 +46,13 @@ public class ShiftPlanning {
     public List<PlanningRequestDTO> Confirmed { get; set; } = [];
 }
 
-public class DayPlanningDTO {
-    public DateOnly Date { get; set; }
+public class DayPlanningDTO(DateOnly date) {
+    public DateOnly Date { get; set; } = date;
     public ShiftPlanning[] Shifts { get; set; } = new ShiftPlanning[5];
-
-    public DayPlanningDTO(DateOnly date) => Date = date;
 }
 
-public class UpdateRequestDTO {
+public class UpdateRequestDTO {  // Setting/clearing a shift request (user is passed as query param)
+    public int UserId { get; set; }
     public DateTime Shift { get; set; }
     public bool IsRequested { get; set; }
 }
@@ -108,9 +107,8 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
                 .ToList()
         };
 
-        foreach (var shift in dto.Shifts) {
+        foreach (var shift in dto.Shifts)
             dto.TotalHours += (shift.To - shift.From).TotalHours;
-        }
 
         return dto;
     }
@@ -168,11 +166,11 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         return await _shiftRepo.LockMonth(date, locked);
     }
 
-    public async Task<bool> UpdateShiftRequest(int userId, UpdateRequestDTO dto) {
+    public async Task<bool> UpdateShiftRequest(UpdateRequestDTO dto) {
         if (dto.IsRequested)
-            return await _shiftRepo.CreateRequest(userId, dto.Shift);
+            return await _shiftRepo.CreateRequest(dto.UserId, dto.Shift);
         else
-            return await _shiftRepo.DeleteRequest(userId, dto.Shift);
+            return await _shiftRepo.DeleteRequest(dto.UserId, dto.Shift);
     }
 
     public async Task<bool> UpdateShiftPlanning(bool confirm, int shiftId) {

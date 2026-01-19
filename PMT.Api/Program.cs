@@ -11,6 +11,8 @@ using PMT.Data;
 using PMT.Data.Repositories;
 using PMT.Services;
 using PMT.Api.HostedServices;
+using PMT.Api.Policies;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +35,9 @@ builder.Services.AddTransient<IRoleRepository, RoleRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<ITokenRepository, TokenRepository>();
 builder.Services.AddTransient<IUserShiftRepository, UserShiftRepository>();
+
+// Policies
+builder.Services.AddSingleton<IAuthorizationHandler, CanModifyHandler>();
 
 // === Swagger === //
 #if DEBUG
@@ -84,12 +89,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization(options => {
-    options.AddPolicy("CanModify", policy => policy.RequireAssertion(context => {
-        // Make it so only admin, management, and the user themselves can modify a users' data
-        string myId = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub)!;
-        var queryUserId = context.Resource is HttpContext httpContext ? httpContext.Request.Query["userId"].FirstOrDefault()!.ToString() : null;
-        return context.User.IsInRole("Admin") || context.User.IsInRole("Management") || queryUserId == myId;
-    }));
+    options.AddPolicy("CanModify", policy => policy.AddRequirements([
+        new CanModifyRequirement()
+    ]));
 });
 
 // === CORS === // (Get chatty with angular)
@@ -109,9 +111,7 @@ var app = builder.Build();
 
 // Migrate db
 using (var scope = app.Services.CreateScope()) {
-    var services = scope.ServiceProvider;
-    var db = services.GetRequiredService<ApplicationDbContext>();
-
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
 }
 

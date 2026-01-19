@@ -6,7 +6,7 @@ using PMT.Services;
 namespace PMT.Api.Controllers;
 
 [ApiController]
-public class ShiftsController(ShiftService _shiftService) : ControllerBase {
+public class ShiftsController(IAuthorizationService _authorizationService, ShiftService _shiftService) : ControllerBase {
     
     [Authorize]
     [HttpGet("shifts")]
@@ -14,10 +14,14 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
         return Ok(_shiftService.GetShiftHours());
     }
 
-    [Authorize(Policy = "CanModify")]
-    [HttpGet("requests")]
-    public async Task<IActionResult> GetUserRequests([FromQuery] int userId, [FromQuery] int year, [FromQuery] int month) {
+    [Authorize]
+    [HttpGet("requests/{userId:int}/{year:int}/{month:int}")]
+    public async Task<IActionResult> GetUserRequests(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetUserRequests(userId: {userId}, year: {year}, month: {month})");
+
+        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        if (!authorized.Succeeded)
+            return Forbid();
 
         if (month < 1 || month > 12)
             return BadRequest(month);
@@ -25,21 +29,35 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
         return Ok(await _shiftService.GetUserRequests(userId, year, month));
     }
 
-    [Authorize(Policy = "CanModify")]
+    [Authorize]
     [HttpPut("requests/update")]
-    public async Task<IActionResult> UpdateRequest([FromQuery] int userId, [FromBody] UpdateRequestDTO body) {
+    public async Task<IActionResult> UpdateRequest([FromBody] UpdateRequestDTO body) {
         Console.WriteLine("ShiftController.UpdateRequest");
-        return Ok(await _shiftService.UpdateShiftRequest(userId, body));
+        
+        var authorized = await _authorizationService.AuthorizeAsync(User, body.UserId, "CanModify");
+        if (!authorized.Succeeded)
+            return Forbid();
+
+        return Ok(await _shiftService.UpdateShiftRequest(body));
     }
 
     [Authorize]
-    [HttpGet("confirmed")]
-    public async Task<IActionResult> GetConfirmedShifts([FromQuery] int userId, [FromQuery] int year, [FromQuery] int month) {
+    [HttpGet("confirmed/{userId:int}/{year:int}/{month:int}")]
+    public async Task<IActionResult> GetConfirmedShifts(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetConfirmedShifts(userId: {userId}, year: {year}, month: {month})");
+
+        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        if (!authorized.Succeeded)
+            return Forbid();
+
         if (month < 1 || month > 12)
             return BadRequest(month);
 
         UserConfirmedDTO data = await _shiftService.GetConfirmedShiftsForUser(userId, year, month);
+        foreach(var shift in data.Shifts) {
+            shift.From = DateTime.SpecifyKind(shift.From, DateTimeKind.Utc);
+            shift.To = DateTime.SpecifyKind(shift.To, DateTimeKind.Utc);
+        }
         
         return Ok(data);
     }
@@ -50,10 +68,10 @@ public class ShiftsController(ShiftService _shiftService) : ControllerBase {
         return Ok(await _shiftService.GetPlanningMonths());
     }
 
-    [HttpGet("planning")]
+    [HttpGet("planning/{year:int}/{month:int}")]
     [Authorize(Roles = "Admin, Management")]
-    public async Task<IActionResult> GetMonthPlanning([FromQuery] int year, [FromQuery] int month) {
-        Console.WriteLine("ShiftsController.GetConfirmedShifts(int userId, int year, int month)");
+    public async Task<IActionResult> GetMonthPlanning(int year, int month) {
+        Console.WriteLine($"ShiftsController.GetConfirmedShifts(year: {year}, month: {month})");
         if (month < 1 || month > 12)
             return BadRequest("Bad month " + month);
             
