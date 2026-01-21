@@ -39,7 +39,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [HttpPut("requests/update")]
     [Authorize]
     public async Task<IActionResult> UpdateRequest([FromBody] UpdateRequestDTO body) {
-        Console.WriteLine("ShiftController.UpdateRequest");
+        Console.WriteLine("ShiftController.UpdateRequest()");
         
         var authorized = await _authorizationService.AuthorizeAsync(User, body.UserId, "CanModify");
         if (!authorized.Succeeded)
@@ -72,7 +72,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [HttpGet("planning/dates")]
     [Authorize(Roles = "Admin, Management")]
     public async Task<IActionResult> GetPlanningMonths() {
-        Console.WriteLine("ShiftsController.GetPlanningMonths");
+        Console.WriteLine("ShiftsController.GetPlanningMonths()");
         return Ok(await _shiftService.GetPlanningMonths());
     }
 
