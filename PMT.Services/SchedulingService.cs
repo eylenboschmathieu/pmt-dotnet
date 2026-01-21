@@ -9,7 +9,7 @@ public class SchedulingService {
     public static async Task EnsureScheduleMonthsAsync(ApplicationDbContext db, int monthsAhead, CancellationToken ct) {
         DateOnly firstOfMonth = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
-        if (DateTime.UtcNow.Day > 15)
+        if (DateTime.UtcNow.Day >= 15)
             monthsAhead += 1;
 
         for (int i = 0; i < monthsAhead; i++) {
