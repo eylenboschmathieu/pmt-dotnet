@@ -75,7 +75,10 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<ICollection<MonthsDTO>> GetPlanningMonths() {
+        DateOnly now = new(DateTime.Now.Year, DateTime.Now.Month, 1);
+
         return await _dbContext.PlanningMonths
+            .Where(e => now <= e.Date)
             .Select(e => new MonthsDTO { Date = e.Date, Locked = e.Locked } )
             .OrderByDescending(e => e.Date)
             .AsNoTracking()
