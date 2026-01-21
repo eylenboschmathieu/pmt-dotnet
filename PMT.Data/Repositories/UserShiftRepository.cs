@@ -63,7 +63,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<IEnumerable<DateOnly>> GetRequestedMonths() {
-        DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        DateOnly now = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(1);
         if (DateTime.UtcNow.Day > 15)
             now = now.AddMonths(1);
 
