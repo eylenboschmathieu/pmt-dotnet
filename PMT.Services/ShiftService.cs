@@ -70,12 +70,17 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         }).ToList();
     }
 
+    // Only return the months after this month, and this month iff the day is less than the 14th
+    public async Task<IEnumerable<DateOnly>> GetRequestedMonths() => await _shiftRepo.GetRequestedMonths();
+
     public async Task<List<UserRequestsDTO>> GetUserRequests(int userId, int year, int month) {
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var data = new List<UserRequestsDTO>(daysInMonth);
 
-        var hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
-            new {
+        var hours = _shiftRepo.GetShiftHours()
+            .Select(e => e.From)
+            .OrderBy(e => e)
+            .Select((item, index) => new {
                 Key = item,
                 Index = index
             }).ToDictionary(e => e.Key, e => e.Index);
@@ -173,8 +178,8 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
             return await _shiftRepo.DeleteRequest(dto.UserId, dto.Shift);
     }
 
-    public async Task<bool> UpdateShiftPlanning(bool confirm, int shiftId) {
-        return await _shiftRepo.ConfirmPlanningForShift(confirm, shiftId);
+    public async Task<bool> UpdateShiftPlanning(int shiftId, bool confirm) {
+        return await _shiftRepo.ConfirmPlanningForShift(shiftId, confirm);
     }
 
     private List<DateOnly> GetLast12Months(DateOnly date) {
@@ -183,11 +188,8 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     }
 
     public async Task<OverviewDTO> GetUserShiftOverview() {
-        DateOnly now = new(DateTime.Now.Year, 6, 1);
-        Console.WriteLine($"GetUserShiftOverview({now})");
-
+        DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
         var data = await _shiftRepo.GetOverviewData(now.AddDays(-1));
-
         var totalRequested = await _shiftRepo.GetRequestedHoursForYear(now);
 
         OverviewDTO dto = new() {
