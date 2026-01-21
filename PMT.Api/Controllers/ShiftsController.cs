@@ -8,14 +8,21 @@ namespace PMT.Api.Controllers;
 [ApiController]
 public class ShiftsController(IAuthorizationService _authorizationService, ShiftService _shiftService) : ControllerBase {
     
-    [Authorize]
     [HttpGet("shifts")]
+    [Authorize]
     public IActionResult GetShiftHours() {
         return Ok(_shiftService.GetShiftHours());
     }
 
+    [HttpGet("requests/dates")]
     [Authorize]
+    public async Task<IActionResult> GetRequestedMonths() {
+        Console.WriteLine("ShiftsController.GetRequestedMonths()");
+        return Ok(await _shiftService.GetRequestedMonths());
+    }
+
     [HttpGet("requests/{userId:int}/{year:int}/{month:int}")]
+    [Authorize]
     public async Task<IActionResult> GetUserRequests(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetUserRequests(userId: {userId}, year: {year}, month: {month})");
 
@@ -29,8 +36,8 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
         return Ok(await _shiftService.GetUserRequests(userId, year, month));
     }
 
-    [Authorize]
     [HttpPut("requests/update")]
+    [Authorize]
     public async Task<IActionResult> UpdateRequest([FromBody] UpdateRequestDTO body) {
         Console.WriteLine("ShiftController.UpdateRequest");
         
@@ -41,8 +48,8 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
         return Ok(await _shiftService.UpdateShiftRequest(body));
     }
 
-    [Authorize]
     [HttpGet("confirmed/{userId:int}/{year:int}/{month:int}")]
+    [Authorize]
     public async Task<IActionResult> GetConfirmedShifts(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetConfirmedShifts(userId: {userId}, year: {year}, month: {month})");
 
@@ -65,6 +72,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [HttpGet("planning/dates")]
     [Authorize(Roles = "Admin, Management")]
     public async Task<IActionResult> GetPlanningMonths() {
+        Console.WriteLine("ShiftsController.GetPlanningMonths");
         return Ok(await _shiftService.GetPlanningMonths());
     }
 
@@ -92,7 +100,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [Authorize(Roles = "Admin, Management")]
     public async Task<IActionResult> UpdatePlanning([FromBody] UpdateShiftPlanningDTO body) {
         Console.WriteLine($"ShiftsController.UpdatePlanning({body.Confirm}, {body.ShiftId})");
-        return Ok(await _shiftService.UpdateShiftPlanning(body.Confirm, body.ShiftId));
+        return Ok(await _shiftService.UpdateShiftPlanning(body.ShiftId, body.Confirm));
     }
 
     [HttpGet("overview")]

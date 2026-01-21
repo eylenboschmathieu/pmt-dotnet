@@ -62,20 +62,23 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<DateOnly>> GetRequestedMonths() {
+        DateOnly now = new(DateTime.Now.Year, DateTime.Now.Month, 1);
+        if (DateTime.Now.Day > 14)
+            now = now.AddMonths(1);
+
+        return await _dbContext.PlanningMonths
+            .Where(e => !e.Locked && now <= e.Date)
+            .Select(e => e.Date )
+            .OrderByDescending(e => e)
+            .ToListAsync();
+    }
+
     public async Task<ICollection<MonthsDTO>> GetPlanningMonths() {
         return await _dbContext.PlanningMonths
             .Select(e => new MonthsDTO { Date = e.Date, Locked = e.Locked } )
             .OrderByDescending(e => e.Date)
             .AsNoTracking()
-            .ToListAsync();
-    }
-
-    public async Task<ICollection<DateOnly>> GetRequestMonths(int userId) {
-        return await _dbContext.UserShifts
-            .Where(e => e.UserId == userId)
-            .Select(e => DateOnly.FromDateTime(e.Shift.From))
-            .Distinct()
-            .OrderByDescending(e => e)
             .ToListAsync();
     }
 
@@ -126,7 +129,6 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         Shift? shift = await _dbContext.Shifts.Where(e => e.From.Equals(date)).FirstOrDefaultAsync();
 
         if (shift is null) {
-            
             TimeSpan to = ShiftHours.Where(e => TimeOnly.FromDateTime(date) == e.From).Select(e => e.Duration).FirstOrDefault();
             shift = new Shift {
                 From = DateTime.SpecifyKind(date, DateTimeKind.Utc),
@@ -141,31 +143,30 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             ShiftId = shift.Id,
             Confirmed = false
         });
-        await _dbContext.SaveChangesAsync();
 
-        return true;
+        return (await _dbContext.SaveChangesAsync()) == 1;
     }
 
     public async Task<bool> DeleteRequest(int userId, DateTime shift) {
-        UserShift? userShift = await _dbContext.UserShifts.Include(e => e.Shift).Where(e => e.UserId == userId && e.Shift.From == shift).FirstOrDefaultAsync();
+        UserShift? userShift = await _dbContext.UserShifts
+            .Include(e => e.Shift)
+            .Where(e => e.UserId == userId && e.Shift.From == shift)
+            .FirstOrDefaultAsync();
 
         if (userShift is null)
             return false;
 
         _dbContext.UserShifts.Remove(userShift);
-        await _dbContext.SaveChangesAsync();
-        return true;
+        return (await _dbContext.SaveChangesAsync()) == 1;
     }
 
-    public async Task<bool> ConfirmPlanningForShift(bool confirm, int shiftId) {
+    public async Task<bool> ConfirmPlanningForShift(int shiftId, bool confirm) {
         UserShift? shift = await _dbContext.UserShifts.Where(e => e.Id == shiftId).FirstOrDefaultAsync();
 
         if (shift is not null) {
             shift.Confirmed = confirm;
-
             _dbContext.UserShifts.Update(shift);
-            await _dbContext.SaveChangesAsync();
-            return true;   
+            return (await _dbContext.SaveChangesAsync()) == 1;
         } else
             Console.WriteLine("Shift not found!");
 
