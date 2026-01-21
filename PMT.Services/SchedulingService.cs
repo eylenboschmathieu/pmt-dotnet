@@ -7,8 +7,10 @@ namespace PMT.Services;
 
 public class SchedulingService {
     public static async Task EnsureScheduleMonthsAsync(ApplicationDbContext db, int monthsAhead, CancellationToken ct) {
-        DateOnly todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
-        DateOnly firstOfMonth = new(todayUtc.Year, todayUtc.Month, 1);
+        DateOnly firstOfMonth = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+
+        if (DateTime.UtcNow.Day > 15)
+            monthsAhead += 1;
 
         for (int i = 0; i < monthsAhead; i++) {
             DateOnly target = firstOfMonth.AddMonths(i);
@@ -22,7 +24,7 @@ public class SchedulingService {
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        Console.WriteLine($"Added {await db.SaveChangesAsync(ct)} months.");
     }
 
     public static async Task RefreshTokenCleanup(ApplicationDbContext db, CancellationToken ct) {

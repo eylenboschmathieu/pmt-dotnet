@@ -63,8 +63,8 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<IEnumerable<DateOnly>> GetRequestedMonths() {
-        DateOnly now = new(DateTime.Now.Year, DateTime.Now.Month, 1);
-        if (DateTime.Now.Day > 14)
+        DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        if (DateTime.UtcNow.Day > 15)
             now = now.AddMonths(1);
 
         return await _dbContext.PlanningMonths
@@ -75,7 +75,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<ICollection<MonthsDTO>> GetPlanningMonths() {
-        DateOnly now = new(DateTime.Now.Year, DateTime.Now.Month, 1);
+        DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
         return await _dbContext.PlanningMonths
             .Where(e => now <= e.Date)

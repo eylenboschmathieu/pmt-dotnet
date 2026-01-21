@@ -70,7 +70,7 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         }).ToList();
     }
 
-    // Only return the months after this month, and this month iff the day is less than the 14th
+    // Only return the months after this month, and this month iff the day is less than the 15th
     public async Task<IEnumerable<DateOnly>> GetRequestedMonths() => await _shiftRepo.GetRequestedMonths();
 
     public async Task<List<UserRequestsDTO>> GetUserRequests(int userId, int year, int month) {
@@ -121,7 +121,7 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     // Only return months that have yet to happen + the one we're in
     public async Task<List<MonthsDTO>> GetPlanningMonths() {
         IEnumerable<MonthsDTO> months = await _shiftRepo.GetPlanningMonths();
-        DateOnly today = DateOnly.FromDateTime(DateTime.Today.AddMonths(-1));
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today.ToUniversalTime().AddMonths(-1));
         return months.Where(e => e.Date > today).ToList();
     }
 
