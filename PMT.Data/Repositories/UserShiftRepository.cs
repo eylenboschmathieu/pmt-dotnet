@@ -181,7 +181,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<List<OverviewData>> GetOverviewData(DateOnly date) {
-        DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddDays(-1);
+        DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddSeconds(-1);
         DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
 
         var query = await _dbContext.UserShifts
@@ -233,8 +233,6 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     public async Task<Dictionary<int, int>> GetRequestedHoursForYear(DateOnly date) {
         DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddSeconds(-1);
         DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
-
-        List<DateTime> months = (from r in Enumerable.Range(0,11) select to.AddMonths(-r)).ToList();
 
         List<UserShift> data = await _dbContext.UserShifts
             .Include(e => e.Shift)

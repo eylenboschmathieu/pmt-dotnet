@@ -187,16 +187,18 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     // Starting from {date}
     private List<DateOnly> GetLast12Months(DateOnly date) {
         date = new DateOnly(date.Year, date.Month, 1);
-        return (from r in Enumerable.Range(0,11) select date.AddMonths(-r)).ToList();
+        return (from r in Enumerable.Range(0,12) select date.AddMonths(-r)).ToList();
     }
 
     public async Task<OverviewDTO> GetUserShiftOverview() {
-        DateOnly start = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-1);
-        Dictionary<int, int> totalRequested = await _shiftRepo.GetRequestedHoursForYear(start);
+        DateOnly startMonth = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-1);
+        DateOnly first_of_month = new(startMonth.Year, startMonth.Month, 1);
+
+        Dictionary<int, int> totalRequested = await _shiftRepo.GetRequestedHoursForYear(first_of_month);
 
         OverviewDTO dto = new() {
-            Months = GetLast12Months(start),
-            Users = await _shiftRepo.GetOverviewData(start.AddDays(-1))
+            Months = GetLast12Months(first_of_month),
+            Users = await _shiftRepo.GetOverviewData(first_of_month)
         };
         
         foreach (var item in dto.Users) {
