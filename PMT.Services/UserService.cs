@@ -57,10 +57,6 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
         return await _userRepo.FindSelect();
     }
 
-    public async Task<IEnumerable<User>> FindAllActive() {
-        return await _userRepo.FindAllActive();
-    }
-
     public async Task<User?> FindByGoogleId(string googleId) {
         return await _userRepo.FindByGoogleId(googleId);
     }
@@ -69,7 +65,7 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
         return await _userRepo.FindByEmail(email);
     }
 
-    public async Task<bool> Update(UpdateUserDTO dto) {
+    public async Task<bool> Update(UpdateUserDTO dto) {  // Used in user controller
         User? user = await _userRepo.FindWithRolesById(dto.Id);
 
         if (user is null)
@@ -82,7 +78,7 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
         return (await _userRepo.UpdateAsync(user)) is not null;
     }
 
-    public async Task<User?> Update(User user) {
+    public async Task<User?> Update(User user) {  // Used in authentication controller
         if (user is null)
             return null;
         return await _userRepo.UpdateAsync(user);

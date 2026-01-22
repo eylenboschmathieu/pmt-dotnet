@@ -75,12 +75,12 @@ public class AuthenticationController(IConfiguration _config, UserService _userS
     [HttpPost("[action]")]
     public async Task<IActionResult> Logout() {
         Console.WriteLine("Logout");
-        if (!Request.Cookies.TryGetValue("refresh_token", out string? refresh_token)) {
+        if (!Request.Cookies.TryGetValue("refresh_token", out string? refresh_cookie)) {
             Console.WriteLine("AuthController.Refresh() - Forbid(NoRefreshToken)");
             return Forbid("Missing refresh token");  // No refresh token was found
         }
 
-        RefreshToken? token = await _tokenService.FindByToken(refresh_token);
+        RefreshToken? token = await _tokenService.FindByToken(refresh_cookie);
         if (token is null) {
             Console.WriteLine("AuthController.Refresh() - Forbid(InvalidOrMissingRefreshToken)");
             return Forbid("Invalid, missing, or expired refresh token");
@@ -137,12 +137,12 @@ public class AuthenticationController(IConfiguration _config, UserService _userS
             return Unauthorized();
         }
 
-        if (!Request.Cookies.TryGetValue("refresh_token", out string? refresh_token)) {
+        if (!Request.Cookies.TryGetValue("refresh_token", out string? refresh_cookie)) {
             Console.WriteLine("AuthController.Refresh() - Unauthorized(NoRefreshCookie)");
             return Unauthorized("No refresh cookie");  // No refresh token was found
         }
 
-        RefreshToken? token = await _tokenService.FindByToken(refresh_token);
+        RefreshToken? token = await _tokenService.FindByToken(refresh_cookie);
         if (token is null) {
             Console.WriteLine("AuthController.Refresh() - Unauthorized(NoRefreshToken)");
             return Unauthorized("Missing refresh token");

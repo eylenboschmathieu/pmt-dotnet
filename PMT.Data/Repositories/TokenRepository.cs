@@ -48,7 +48,7 @@ public class TokenRepository(ApplicationDbContext _dbContext) : ITokenRepository
         return token;
     }
 
-    public async Task<RefreshToken?> FindByTokenAsync(string refresh_token) {
-        return await _dbContext.RefreshTokens.Include(e => e.User).Where(e => e.Token.Equals(refresh_token)).FirstOrDefaultAsync();
+    public async Task<RefreshToken?> FindByTokenAsync(string refresh_cookie) {
+        return await _dbContext.RefreshTokens.Include(e => e.User).Where(e => e.Token.Equals(refresh_cookie)).FirstOrDefaultAsync();
     }
 }

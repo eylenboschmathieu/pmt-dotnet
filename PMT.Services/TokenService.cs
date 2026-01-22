@@ -48,13 +48,13 @@ public class TokenService(ITokenRepository _tokenRepository, IRoleRepository _ro
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public async Task<RefreshToken> GenerateRefreshToken(User user, IPAddress IpAddress, string? old_token = null) {
+    public async Task<RefreshToken> GenerateRefreshToken(User user, IPAddress IpAddress) {
         var refresh_token = new RefreshToken {
             Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
             Expires = DateTime.UtcNow.AddDays(7),
             UserId = user.Id,
             IpAddress = IpAddress,
-            ReplacedByToken = old_token is null ? null : await _tokenRepository.FindByTokenAsync(old_token)
+            ReplacedByToken = null
         };
 
         // Need to hash the tokens before storing them in db.
@@ -62,8 +62,8 @@ public class TokenService(ITokenRepository _tokenRepository, IRoleRepository _ro
         return await _tokenRepository.AddAsync(refresh_token);
     }
 
-    public async Task<RefreshToken?> FindByToken(string refresh_token) {
-        return await _tokenRepository.FindByTokenAsync(refresh_token);
+    public async Task<RefreshToken?> FindByToken(string refresh_cookie) {
+        return await _tokenRepository.FindByTokenAsync(refresh_cookie);
     }
 
     public async Task<RefreshToken?> Update(RefreshToken refresh_token) {

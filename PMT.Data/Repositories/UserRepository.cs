@@ -44,11 +44,11 @@ public class UserRepository : IUserRepository {
     }
 
     public async Task<User?> FindByGoogleId(string googleId) {
-        return await _dbContext.Users.Include(e => e.Roles).FirstOrDefaultAsync(u => u.GoogleId == googleId);
+        return await _dbContext.Users.Include(e => e.Roles).FirstAsync(u => u.GoogleId == googleId);
     }
 
     public async Task<User?> FindByEmail(string email) {
-        return await _dbContext.Users.Include(e => e.Roles).FirstOrDefaultAsync(u => u.Email.Equals(email));
+        return await _dbContext.Users.Include(e => e.Roles).FirstAsync(u => u.Email.Equals(email));
     }
 
     public async Task<User?> UpdateAsync(User entity) {
@@ -66,11 +66,7 @@ public class UserRepository : IUserRepository {
     }
 
     public async Task<User?> FindUserData(int userId) {
-        return await _dbContext.Users.Include(e => e.Roles).Include(e => e.CreatedBy).FirstOrDefaultAsync(e => e.Id == userId);
-    }
-
-    public async Task<IEnumerable<User>> FindAllActive() {
-        return await _dbContext.Users.Include(e => e.Roles).Where(e => e.Active).ToListAsync();
+        return await _dbContext.Users.Include(e => e.Roles).Include(e => e.CreatedBy).FirstAsync(e => e.Id == userId);
     }
 
     public async Task<bool> SetActive(int userId, bool active) {
