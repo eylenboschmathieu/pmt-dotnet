@@ -26,7 +26,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     public async Task<IActionResult> GetUserRequests(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetUserRequests(userId: {userId}, year: {year}, month: {month})");
 
-        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
         if (!authorized.Succeeded)
             return Forbid();
 
@@ -41,7 +41,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     public async Task<IActionResult> UpdateRequest([FromBody] UpdateRequestDTO body) {
         Console.WriteLine("ShiftController.UpdateRequest()");
         
-        var authorized = await _authorizationService.AuthorizeAsync(User, body.UserId, "CanModify");
+        AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, body.UserId, "CanModify");
         if (!authorized.Succeeded)
             return Forbid();
 
@@ -53,20 +53,14 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     public async Task<IActionResult> GetConfirmedShifts(int userId, int year, int month) {
         Console.WriteLine($"ShiftsController.GetConfirmedShifts(userId: {userId}, year: {year}, month: {month})");
 
-        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
         if (!authorized.Succeeded)
             return Forbid();
 
         if (month < 1 || month > 12)
             return BadRequest(month);
 
-        UserConfirmedDTO data = await _shiftService.GetConfirmedShiftsForUser(userId, year, month);
-        foreach(var shift in data.Shifts) {
-            shift.From = DateTime.SpecifyKind(shift.From, DateTimeKind.Utc);
-            shift.To = DateTime.SpecifyKind(shift.To, DateTimeKind.Utc);
-        }
-        
-        return Ok(data);
+        return Ok(await _shiftService.GetConfirmedShiftsForUser(userId, year, month));
     }
 
     [HttpGet("planning/dates")]
@@ -99,8 +93,8 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [HttpPut("planning/update")]
     [Authorize(Roles = "Admin, Management")]
     public async Task<IActionResult> UpdatePlanning([FromBody] UpdateShiftPlanningDTO body) {
-        Console.WriteLine($"ShiftsController.UpdatePlanning({body.Confirm}, {body.ShiftId})");
-        return Ok(await _shiftService.UpdateShiftPlanning(body.ShiftId, body.Confirm));
+        Console.WriteLine($"ShiftsController.UpdatePlanning({body.Planned}, {body.ShiftId})");
+        return Ok(await _shiftService.UpdateShiftPlanning(body.ShiftId, body.Planned));
     }
 
     [HttpGet("overview")]

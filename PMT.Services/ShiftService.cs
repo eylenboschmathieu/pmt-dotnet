@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore;
 
+using PMT.Data.Entities;
 using PMT.Data.Repositories;
 
 namespace PMT.Services;
@@ -16,7 +17,7 @@ public class LockMonthDTO {  // Lock/unlock a month in management/planning
 }
 
 public class UpdateShiftPlanningDTO {
-    public bool Confirm { get; set; }
+    public bool Planned { get; set; }
     public int ShiftId { get; set; }
 }
 
@@ -70,14 +71,13 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         }).ToList();
     }
 
-    // Only return the months after this month, and this month iff the day is less than the 15th
     public async Task<IEnumerable<DateOnly>> GetRequestedMonths() => await _shiftRepo.GetRequestedMonths();
 
     public async Task<List<UserRequestsDTO>> GetUserRequests(int userId, int year, int month) {
-        var daysInMonth = DateTime.DaysInMonth(year, month);
-        var data = new List<UserRequestsDTO>(daysInMonth);
+        int daysInMonth = DateTime.DaysInMonth(year, month);
+        List<UserRequestsDTO> data = new(daysInMonth);
 
-        var hours = _shiftRepo.GetShiftHours()
+        Dictionary<TimeOnly, int> hours = _shiftRepo.GetShiftHours()
             .Select(e => e.From)
             .OrderBy(e => e)
             .Select((item, index) => new {
@@ -86,12 +86,12 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
             }).ToDictionary(e => e.Key, e => e.Index);
         
         for (int day = 1; day <= daysInMonth; day++) {
-            var date = new DateOnly(year, month, day);
+            DateOnly date = new(year, month, day);
 
-            var userShifts = await _shiftRepo.GetUserRequestsForDay(userId, date);
-            var flags = new bool[5];
+            IEnumerable<UserShift> userShifts = await _shiftRepo.GetUserRequestsForDay(userId, date);
+            bool[] flags = new bool[5];
 
-            foreach (var userShift in userShifts) {
+            foreach (UserShift userShift in userShifts) {
                 flags[hours[TimeOnly.FromDateTime(userShift.Shift.From)]] = true;
             }
             
@@ -105,14 +105,16 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     }
 
     public async Task<UserConfirmedDTO> GetConfirmedShiftsForUser(int userId, int year, int month) {
-        var daysInMonth = DateTime.DaysInMonth(year, month);
+        int daysInMonth = DateTime.DaysInMonth(year, month);
         UserConfirmedDTO dto = new UserConfirmedDTO {
             Shifts = (await _shiftRepo.GetConfirmedShifts(userId, new DateOnly(year, month, 1), new DateOnly(year, month, daysInMonth)))
-                .Select(e => new DateTimeSpan() { From = e.From, To = e.To })
-                .ToList()
+                .Select(e => new DateTimeSpan() {
+                    From = DateTime.SpecifyKind(e.From, DateTimeKind.Utc),
+                    To = DateTime.SpecifyKind(e.To, DateTimeKind.Utc)
+                }).ToList()
         };
 
-        foreach (var shift in dto.Shifts)
+        foreach (DateTimeSpan shift in dto.Shifts)
             dto.TotalHours += (shift.To - shift.From).TotalHours;
 
         return dto;
@@ -127,22 +129,22 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
 
     public async Task<List<DayPlanningDTO>> GetPlanningForMonth(int year, int month) {
         // See DTO in interface for more information
-        var daysInMonth = DateTime.DaysInMonth(year, month);
-        var data = new List<DayPlanningDTO>(daysInMonth);
+        int daysInMonth = DateTime.DaysInMonth(year, month);
+        List<DayPlanningDTO> data = new(daysInMonth);
 
-        var internId = (await _roleRepo.FindByName("Intern"))?.Id ?? throw new Exception("RoleNotFound");
+        int internId = (await _roleRepo.FindByName("Intern"))?.Id ?? throw new Exception("RoleNotFound");
         
         for (int day = 1; day <= daysInMonth; day++) {
             DayPlanningDTO dayPlanning = new(new DateOnly(year, month, day));
 
-            var userShifts = await _shiftRepo.GetRequestsForDay(dayPlanning.Date);
-            var hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
+            List<IGrouping<DateTime, UserShift>> userShifts = await _shiftRepo.GetRequestsForDay(dayPlanning.Date);
+            Dictionary<TimeOnly, int> hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
                 new {
                     Key = item,
                     Index = index
                 }).ToDictionary(e => e.Key, e => e.Index);
 
-            foreach (var userShift in userShifts) {
+            foreach (IGrouping<DateTime, UserShift> userShift in userShifts) {
                 int index = hours[TimeOnly.FromDateTime(userShift.Key)];
                 
                 ShiftPlanning shiftPlanning = new() {
@@ -178,25 +180,25 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
             return await _shiftRepo.DeleteRequest(dto.UserId, dto.Shift);
     }
 
-    public async Task<bool> UpdateShiftPlanning(int shiftId, bool confirm) {
-        return await _shiftRepo.ConfirmPlanningForShift(shiftId, confirm);
+    public async Task<bool> UpdateShiftPlanning(int shiftId, bool planned) {
+        return await _shiftRepo.UpdatePlanningForShift(shiftId, planned);
     }
 
+    // Starting from {date}
     private List<DateOnly> GetLast12Months(DateOnly date) {
         date = new DateOnly(date.Year, date.Month, 1);
-        return (from r in Enumerable.Range(1,12) select date.AddMonths(-r)).ToList();
+        return (from r in Enumerable.Range(0,11) select date.AddMonths(-r)).ToList();
     }
 
     public async Task<OverviewDTO> GetUserShiftOverview() {
-        DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-        var data = await _shiftRepo.GetOverviewData(now.AddDays(-1));
-        var totalRequested = await _shiftRepo.GetRequestedHoursForYear(now);
+        DateOnly start = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-1);
+        Dictionary<int, int> totalRequested = await _shiftRepo.GetRequestedHoursForYear(start);
 
         OverviewDTO dto = new() {
-            Months = GetLast12Months(now),
-            Users = data
+            Months = GetLast12Months(start),
+            Users = await _shiftRepo.GetOverviewData(start.AddDays(-1))
         };
-
+        
         foreach (var item in dto.Users) {
             item.Requested = (int)totalRequested.GetValueOrDefault(item.Id, 0);
         }
