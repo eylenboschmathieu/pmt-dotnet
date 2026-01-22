@@ -3,5 +3,10 @@ using PMT.Data.Entities;
 namespace PMT.Data.Repositories;
 
 public interface ITokenRepository : IRepository<RefreshToken> {
-    public Task<RefreshToken?> FindByTokenAsync(string refresh_token);
+    /// <summary>
+    /// Returns a refresh token, or null.
+    /// </summary>
+    /// <param name="refresh_cookie">The refresh cookie</param>
+    /// <returns>A refresh token, or null if it doesn't exist.</returns>
+    public Task<RefreshToken?> FindByTokenAsync(string refresh_cookie);
 }

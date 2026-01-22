@@ -96,7 +96,7 @@ public interface IUserShiftRepository : IRepository<UserShift> {
 
     /// <summary>
     /// Returns list of all active users, with each users containing how many hours they worked each month, for the last 12 months.
-    /// As well as the total worked in the last 12 months, and the percentage of hours requested to hours worked.
+    /// As well as the total worked in the last 12 months.
     /// </summary>
     /// <param name="date">The date to start from, going backwards</param>
     /// <returns>A list of objects containing the total confirmed hours, percentage of requested vs confirmed hours,
