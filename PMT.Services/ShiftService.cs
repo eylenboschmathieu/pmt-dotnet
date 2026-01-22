@@ -148,12 +148,12 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
                 int index = hours[TimeOnly.FromDateTime(userShift.Key)];
                 
                 ShiftPlanning shiftPlanning = new() {
-                    Volunteered = userShift.Where(e => !e.Confirmed).Select(e => new PlanningRequestDTO() {
+                    Volunteered = userShift.Where(e => !e.Planned).Select(e => new PlanningRequestDTO() {
                         Id = e.Id,
                         Name = e.User.Name ?? "NoName",
                         IsIntern = e.User.Roles.Select(e => e.Id).Contains(internId)
                     }).ToList(),
-                    Confirmed = userShift.Where(e => e.Confirmed).Select(e => new PlanningRequestDTO() {
+                    Confirmed = userShift.Where(e => e.Planned).Select(e => new PlanningRequestDTO() {
                         Id = e.Id,
                         Name = e.User.Name ?? "NoName",
                         IsIntern = e.User.Roles.Select(e => e.Id).Contains(internId)

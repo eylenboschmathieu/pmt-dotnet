@@ -18,5 +18,5 @@ public class UserShift {
     public int ShiftId { get; set; }
     public Shift Shift { get; set; } = null!;
 
-    public bool Confirmed { get; set; }
+    public bool Planned { get; set; }
 }

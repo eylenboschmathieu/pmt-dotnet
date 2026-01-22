@@ -53,7 +53,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
                 e.UserId == userId &&
                 DateOnly.FromDateTime(e.Shift.From) >= from &&
                 DateOnly.FromDateTime(e.Shift.To) <= to &&
-                e.Confirmed)
+                e.Planned)
             .Select(e => e.Shift)
             .OrderBy(e => e.From)
             .AsNoTracking()
@@ -148,7 +148,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         _dbContext.UserShifts.Add(new UserShift {
             UserId = userId,
             ShiftId = shift.Id,
-            Confirmed = false
+            Planned = false
         });
 
         return (await _dbContext.SaveChangesAsync()) == 1;
@@ -171,7 +171,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         UserShift? shift = await _dbContext.UserShifts.Where(e => e.Id == shiftId).FirstOrDefaultAsync();
 
         if (shift is not null) {
-            shift.Confirmed = planned;
+            shift.Planned = planned;
             _dbContext.UserShifts.Update(shift);
             return (await _dbContext.SaveChangesAsync()) == 1;
         } else
@@ -185,7 +185,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
 
         var query = await _dbContext.UserShifts
-            .Where(e => e.Confirmed)
+            .Where(e => e.Planned)
             .Join(_dbContext.Shifts, us => us.ShiftId, s => s.Id, (us, s) => new {
                 us.UserId,
                 Shift = s
