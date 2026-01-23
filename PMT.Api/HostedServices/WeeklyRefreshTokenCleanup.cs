@@ -12,7 +12,7 @@ public class WeeklyRefreshTokenCleanup(IServiceScopeFactory _scopeFactory, ILogg
         while (!stoppingToken.IsCancellationRequested) {
             try {
                 using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                ApplicationDbContext db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
                 await SchedulingService.RefreshTokenCleanup(db, stoppingToken);  // Clean up refresh tokens that expired more than a month ago
 

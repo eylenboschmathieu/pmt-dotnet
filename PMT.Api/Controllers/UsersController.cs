@@ -13,7 +13,8 @@ public class UserCreateDTO {
 }
 
 [ApiController]
-public class UsersController(IAuthorizationService _authorizationService, UserService _userService, RoleService _roleService) : ControllerBase {
+public class UsersController(IAuthorizationService _authorizationService, ILogger<UsersController> _logger,
+    UserService _userService, RoleService _roleService) : ControllerBase {
 
     [Authorize(Roles = "Admin, Management")]
     [HttpGet("users")]
@@ -34,7 +35,7 @@ public class UsersController(IAuthorizationService _authorizationService, UserSe
     public async Task<IActionResult> GetUserData(int userId) {
         Console.WriteLine($"UsersController.GetUserData({userId})");
 
-        var authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
+        AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, userId, "CanModify");
         if (!authorized.Succeeded)
             return Forbid();
 
@@ -70,23 +71,25 @@ public class UsersController(IAuthorizationService _authorizationService, UserSe
             Active = true
         };
         await _userService.Create(newUser);
+
+        _logger.LogInformation("Created user {user}", user.Email);
         return Created();
     }
     
     [HttpPost("user/demo_new")]
-    public async Task<IActionResult> DemoNewUser([FromBody] UserCreateDTO user) {
+    public async Task<IActionResult> DemoNewUser([FromBody] UserCreateDTO dto) {
         Console.WriteLine("UserController.DemoNewUser");
-        List<Role> roles = (await _roleService.FindAll()).Where(r => user.Roles.Contains(r.Id)).ToList();
+        List<Role> roles = (await _roleService.FindAll()).Where(r => dto.Roles.Contains(r.Id)).ToList();
         
         User newUser = new() {
-            Email = user.Email,
+            Email = dto.Email,
             Roles = roles,
             CreatedBy = null,
             Active = true
         };
 
-        var u = await _userService.Create(newUser);
-        return Ok(u);
+        User? user = await _userService.Create(newUser);
+        return Ok(user);
     }
 
     [Authorize]
@@ -94,7 +97,7 @@ public class UsersController(IAuthorizationService _authorizationService, UserSe
     public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserDTO body) {
         Console.WriteLine($"UserController.UpdateUser({userId}, {body.Id}, {body.Name}, {body.Active}, {body.Roles})");
 
-        var authorized = await _authorizationService.AuthorizeAsync(User, body.Id, "CanModify");
+        AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, body.Id, "CanModify");
         if (!authorized.Succeeded)
             return Forbid();
 

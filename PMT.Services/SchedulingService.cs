@@ -6,7 +6,7 @@ using PMT.Data.Entities;
 namespace PMT.Services;
 
 public class SchedulingService {
-    public static async Task EnsureScheduleMonthsAsync(ApplicationDbContext db, int monthsAhead, CancellationToken ct) {
+    public static async Task<int> EnsureScheduleMonthsAsync(ApplicationDbContext db, int monthsAhead, CancellationToken ct) {
         DateOnly firstOfMonth = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
         if (DateTime.UtcNow.Day >= 15)
@@ -24,7 +24,7 @@ public class SchedulingService {
             }
         }
 
-        Console.WriteLine($"Added {await db.SaveChangesAsync(ct)} months.");
+        return await db.SaveChangesAsync(ct);
     }
 
     public static async Task RefreshTokenCleanup(ApplicationDbContext db, CancellationToken ct) {
