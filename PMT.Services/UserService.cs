@@ -42,15 +42,15 @@ public class UserDTO {
 public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
     public async Task<User?> Create(User user) {
         user.Email = user.Email.ToLower();
-        return await _userRepo.AddAsync(user);
+        return await _userRepo.CreateAsync(user);
     }
 
     public async Task<User?> FindById(int userId) {
-        return await _userRepo.FindByIdAsync(userId);
+        return await _userRepo.GetAsync(userId);
     }
 
     public async Task<IEnumerable<User>> FindAll() {
-        return await _userRepo.FindAllAsync();
+        return await _userRepo.GetAllAsync();
     }
 
     public async Task<IEnumerable<User>> FindSelect() {
@@ -75,12 +75,13 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
         user.Name = dto.Name;
         user.Roles = (await _roleRepo.FindByIds(dto.Roles)).ToList();
 
-        return (await _userRepo.UpdateAsync(user)) is not null;
+        return await _userRepo.UpdateAsync(user);
     }
 
-    public async Task<User?> Update(User user) {  // Used in authentication controller
+    public async Task<bool> Update(User user) {  // Used in authentication controller
         if (user is null)
-            return null;
+            return false;
+
         return await _userRepo.UpdateAsync(user);
     }
 

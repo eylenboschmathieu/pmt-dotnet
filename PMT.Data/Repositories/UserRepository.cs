@@ -12,11 +12,26 @@ public class UserRepository : IUserRepository {
         _dbContext = dbContext;
     }
 
-    public async Task<User> AddAsync(User entity) {
+    public async Task<User> CreateAsync(User entity) {
         _dbContext.Users.Add(entity);
         await _dbContext.SaveChangesAsync();
 
         return entity;
+    }
+
+    public async Task<User?> GetAsync(int id) => await _dbContext.Users.FindAsync(id);
+
+    public async Task<IEnumerable<User>> GetAllAsync() => await _dbContext.Users.ToListAsync();
+
+    public async Task<bool> UpdateAsync(User user) {
+        bool exists = await _dbContext.Users.AnyAsync(e => e.Id == user.Id);
+        if (!exists)
+            return false;
+
+        _dbContext.Update(user);
+        await _dbContext.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int id) {
@@ -31,38 +46,12 @@ public class UserRepository : IUserRepository {
         return true;
     }
 
-    public async Task<IEnumerable<User>> FindAllAsync() {
-        return await _dbContext.Users.Include(u => u.CreatedBy).ToListAsync();
-    }
+    public async Task<User?> FindWithRolesById(int id) => await _dbContext.Users.Include(e => e.Roles).FirstAsync(e => e.Id == id);
 
-    public async Task<User?> FindByIdAsync(int id) {
-        return await _dbContext.Users.FindAsync(id);
-    }
-
-    public async Task<User?> FindWithRolesById(int id) {
-        return await _dbContext.Users.Include(e => e.Roles).FirstAsync(e => e.Id == id);
-    }
-
-    public async Task<User?> FindByGoogleId(string googleId) {
-        return await _dbContext.Users.Include(e => e.Roles).FirstAsync(u => u.GoogleId == googleId);
-    }
+    public async Task<User?> FindByGoogleId(string googleId) => await _dbContext.Users.FirstAsync(e => e.GoogleId == googleId);
 
     public async Task<User?> FindByEmail(string email) {
         return await _dbContext.Users.Include(e => e.Roles).FirstAsync(u => u.Email.Equals(email));
-    }
-
-    public async Task<User?> UpdateAsync(User entity) {
-        var user = await _dbContext.Users.FindAsync(entity.Id);
-        if (user is null)
-            return null;
-
-        user.Name = entity.Name;
-        user.GoogleId = entity.GoogleId;
-        user.Active = entity.Active;
-        user.Roles = entity.Roles;
-        await _dbContext.SaveChangesAsync();
-
-        return user;
     }
 
     public async Task<User?> FindUserData(int userId) {

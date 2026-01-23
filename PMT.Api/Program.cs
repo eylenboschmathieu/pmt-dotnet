@@ -27,7 +27,7 @@ builder.Services.AddHostedService<MonthlyScheduleSeeder>();
     // Services
 builder.Services.AddTransient<RoleService>();
 builder.Services.AddTransient<UserService>();
-builder.Services.AddTransient<TokenService>();
+builder.Services.AddTransient<AuthenticationService>();
 builder.Services.AddTransient<ShiftService>();
 
     // Repositories

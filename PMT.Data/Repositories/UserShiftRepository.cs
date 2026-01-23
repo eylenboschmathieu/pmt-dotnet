@@ -20,11 +20,26 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
 
     public ShiftTime[] GetShiftHours() => ShiftHours;
 
-    public async Task<UserShift> AddAsync(UserShift entity) {
+    public async Task<UserShift> CreateAsync(UserShift entity) {
         _dbContext.UserShifts.Add(entity);
         await _dbContext.SaveChangesAsync();
 
         return entity;
+    }
+
+    public async Task<UserShift?> GetAsync(int id) => await _dbContext.UserShifts.FindAsync(id);
+    
+    public async Task<IEnumerable<UserShift>> GetAllAsync() => await _dbContext.UserShifts.ToListAsync();
+
+    public async Task<bool> UpdateAsync(UserShift entity) {
+        bool exists = await _dbContext.UserShifts.AnyAsync(e => e.Id == entity.Id);
+        if (!exists)
+            return false;
+
+        _dbContext.UserShifts.Update(entity);
+        await _dbContext.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int id) {
@@ -33,18 +48,10 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         if (us is null)
             return false;
 
-        _dbContext.UserShifts.Remove(us!);
+        _dbContext.UserShifts.Remove(us);
         await _dbContext.SaveChangesAsync();
 
         return true;
-    }
-
-    public async Task<IEnumerable<UserShift>> FindAllAsync() {
-        return await _dbContext.UserShifts.AsNoTracking().ToListAsync();
-    }
-
-    public async Task<UserShift?> FindByIdAsync(int id) {
-        return await _dbContext.UserShifts.FindAsync(id);
     }
 
     public async Task<IEnumerable<Shift>> GetConfirmedShifts(int userId, DateOnly from, DateOnly to) {
@@ -104,25 +111,13 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     public async Task<bool> LockMonth(DateOnly date, bool locked) {
         PlanningMonth pm = await _dbContext.PlanningMonths.Where(e => e.Date == date).FirstAsync();
 
-        if (pm is not null) {
-            pm.Locked = locked;
-            _dbContext.PlanningMonths.Update(pm);
-            return (await _dbContext.SaveChangesAsync()) == 1;
-        }
+        if (pm is null)
+            return false;
 
-        return false;
-    }
-
-    public async Task<UserShift?> UpdateAsync(UserShift entity) {
-        UserShift? rs = await _dbContext.UserShifts.FindAsync(entity.Id);
-        if (rs is null)
-            return null;
-
-        rs.UserId = entity.UserId;
-        rs.ShiftId = entity.ShiftId;
+        pm.Locked = locked;
+        _dbContext.PlanningMonths.Update(pm);
         await _dbContext.SaveChangesAsync();
-
-        return rs;
+        return true;
     }
 
     public async Task<bool> CreateRequest(int userId, DateTime date) {
@@ -151,7 +146,9 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             Planned = false
         });
 
-        return (await _dbContext.SaveChangesAsync()) == 1;
+        await _dbContext.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task<bool> DeleteRequest(int userId, DateTime shift) {
