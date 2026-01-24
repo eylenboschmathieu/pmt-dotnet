@@ -4,8 +4,4 @@ Create the following dotnet user-secrets for PMT.Api:
     App:Issuer                              # eg. https://www.api.example.com
     App:Audience                            # eg https://www.example.com
     App:AdminEmail                          # Used for seeding the db, creating initial user. eg firstname.lastname@gmail.com. Must be a gmail address!
-    App:CORS:Origin                         # Location of front-end, eg mathieu.eylenbosch@github.io/pmt-angular
-
-Create the following anguler environment variables in PMT.client/environments/environment.ts and PMT.client/environment/environment.development.ts:
-    GOOGLE_CLIENT_ID: "put_your_google_client_id_here",
-    ENDPOINT_URI: "https://api.localhost:5015"
+    App:CORS:Origin                         # Location of front-end, eg mathieu.eylenbosch@github.io
