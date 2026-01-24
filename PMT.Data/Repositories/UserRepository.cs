@@ -46,16 +46,20 @@ public class UserRepository : IUserRepository {
         return true;
     }
 
-    public async Task<User?> FindWithRolesById(int id) => await _dbContext.Users.Include(e => e.Roles).FirstAsync(e => e.Id == id);
+    public async Task<User?> FindWithRolesById(int id) => await _dbContext.Users.Include(e => e.Roles).FirstOrDefaultAsync(e => e.Id == id);
 
-    public async Task<User?> FindByGoogleId(string googleId) => await _dbContext.Users.FirstAsync(e => e.GoogleId == googleId);
+    public async Task<User?> FindByGoogleId(string googleId) => await _dbContext.Users.FirstOrDefaultAsync(e => e.GoogleId == googleId);
+
+    public async Task<bool> EmailExists(string email) {
+        return await _dbContext.Users.AnyAsync(e => e.Email == email);
+    }
 
     public async Task<User?> FindByEmail(string email) {
-        return await _dbContext.Users.Include(e => e.Roles).FirstAsync(u => u.Email.Equals(email));
+        return await _dbContext.Users.Include(e => e.Roles).FirstOrDefaultAsync(u => u.Email.Equals(email));
     }
 
     public async Task<User?> FindUserData(int userId) {
-        return await _dbContext.Users.Include(e => e.Roles).Include(e => e.CreatedBy).FirstAsync(e => e.Id == userId);
+        return await _dbContext.Users.Include(e => e.Roles).Include(e => e.CreatedBy).FirstOrDefaultAsync(e => e.Id == userId);
     }
 
     public async Task<bool> SetActive(int userId, bool active) {

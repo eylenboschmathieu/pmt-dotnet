@@ -12,7 +12,7 @@ public class AuthenticationController(AuthenticationService _authService) : Cont
 
     [HttpPost("[action]")]
     public async Task<IActionResult> Login([FromBody] string? GoogleIdToken) {
-        Console.WriteLine($"AuthController.Login(string GoogleIdToken)");
+        Console.WriteLine($"AuthController.Login(string? GoogleIdToken)");
 
         LoginResult result = await _authService.LoginAsync(GoogleIdToken, Request.HttpContext.Connection.RemoteIpAddress);
 
@@ -35,8 +35,9 @@ public class AuthenticationController(AuthenticationService _authService) : Cont
         
         if (result.AccessToken is null || result.RefreshToken is null)
                 return StatusCode(StatusCodes.Status500InternalServerError);
-            _authService.CreateRefreshCookie(Response.Cookies, result.RefreshToken);
-            return Ok(new { access_token = result.AccessToken });
+
+        _authService.CreateRefreshCookie(Response.Cookies, result.RefreshToken);
+        return Ok(new { access_token = result.AccessToken });
     }
 
     [Authorize]

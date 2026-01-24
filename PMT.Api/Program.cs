@@ -13,6 +13,7 @@ using PMT.Services;
 using PMT.Api.HostedServices;
 using PMT.Api.Policies;
 using Microsoft.AspNetCore.Authorization;
+using PMT.Data.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -124,7 +125,7 @@ using (var scope = app.Services.CreateScope()) {
         var userService = scope.ServiceProvider.GetRequiredService<UserService>();
         var roleService = scope.ServiceProvider.GetRequiredService<RoleService>();
 
-        var user = await userService.FindByEmail(adminEmail);
+        User? user = await userService.FindByEmail(adminEmail);
         if (user == null) {
             // These roles are mapped to id's 1 and 2
             var adminRole = await roleService.FindById(1);
@@ -147,7 +148,6 @@ if (app.Environment.IsDevelopment()) {
     app.UseSwaggerUI();
 }
 
-app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("AllowAngular");
 app.UseAuthentication();
