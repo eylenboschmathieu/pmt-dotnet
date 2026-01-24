@@ -1,16 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Google.Apis.Auth;
 
 using PMT.Data.Entities;
 using PMT.Services;
 using System.Net;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace PMT.Api.Controllers;
 
 [ApiController]
 public class AuthenticationController(AuthenticationService _authService) : ControllerBase {
+
     [HttpPost("[action]")]
     public async Task<IActionResult> Login([FromBody] string? GoogleIdToken) {
         Console.WriteLine($"AuthController.Login(string GoogleIdToken)");
@@ -64,7 +63,7 @@ public class AuthenticationController(AuthenticationService _authService) : Cont
             }
         }
         
-        return Ok(true);
+        return Ok();
     }
 
     [HttpPost("access")]

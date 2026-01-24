@@ -25,15 +25,15 @@ builder.Services.AddHostedService<WeeklyRefreshTokenCleanup>();
 builder.Services.AddHostedService<MonthlyScheduleSeeder>();
 
     // Services
+builder.Services.AddTransient<AuthenticationService>();
 builder.Services.AddTransient<RoleService>();
 builder.Services.AddTransient<UserService>();
-builder.Services.AddTransient<AuthenticationService>();
 builder.Services.AddTransient<ShiftService>();
 
     // Repositories
+builder.Services.AddTransient<ITokenRepository, TokenRepository>();
 builder.Services.AddTransient<IRoleRepository, RoleRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
-builder.Services.AddTransient<ITokenRepository, TokenRepository>();
 builder.Services.AddTransient<IUserShiftRepository, UserShiftRepository>();
 
 // Policies
@@ -96,11 +96,11 @@ builder.Services.AddAuthorization(options => {
 
 // === CORS === // (Get chatty with angular)
 builder.Services.AddCors(options => {
-options.AddPolicy("AllowAngular", policy =>
-    policy.WithOrigins(builder.Configuration["App:CORS:Origin"]!)
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials());
+    options.AddPolicy("AllowAngular", policy =>
+        policy.WithOrigins(builder.Configuration["App:CORS:Origin"]!)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 //==============//
@@ -147,6 +147,7 @@ if (app.Environment.IsDevelopment()) {
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("AllowAngular");
 app.UseAuthentication();
