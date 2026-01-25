@@ -45,5 +45,5 @@ public interface IUserRepository : IRepository<User> {
     /// </summary>
     /// <param name="userId"></param>
     /// <returns>A user, or null if the user isn't found.</returns>
-    public Task<User?> FindWithRolesById(int userId);
+    public Task<User?> FindByIdWithRoles(int userId);
 }

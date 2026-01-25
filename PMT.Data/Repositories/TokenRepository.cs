@@ -22,13 +22,6 @@ public class TokenRepository(ApplicationDbContext _dbContext) : ITokenRepository
         if (!exists)
             return false;
 
-        //token.Token = entity.Token;
-        //token.IpAddress = entity.IpAddress;
-        //token.Created = entity.Created;
-        //token.Expires = entity.Expires;
-        //token.ReplacedByToken = entity.ReplacedByToken;
-        //token.User = entity.User;
-        //token.Revoked = entity.Revoked;
         _dbContext.RefreshTokens.Update(token);
         await _dbContext.SaveChangesAsync();
 
@@ -46,7 +39,16 @@ public class TokenRepository(ApplicationDbContext _dbContext) : ITokenRepository
         return true;
     }
 
-    public async Task<RefreshToken?> FindByCookieAsync(string refresh_cookie) {
-        return await _dbContext.RefreshTokens.Include(e => e.User).Where(e => e.Token.Equals(refresh_cookie)).FirstOrDefaultAsync();
+    public async Task<RefreshToken?> FindByCookieAsync(string refresh_cookie) => await _dbContext.RefreshTokens
+        .Include(e => e.User)
+        .FirstOrDefaultAsync(e => e.Token.Equals(refresh_cookie));
+
+    public async Task RevokeUser(int userId) {
+        DateTime now = DateTime.UtcNow;
+        await _dbContext.RefreshTokens
+            .Where(e => e.UserId == userId)
+            .ForEachAsync(e => e.Revoked = now);
+
+        await _dbContext.SaveChangesAsync();
     }
 }

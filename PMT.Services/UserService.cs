@@ -66,7 +66,7 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
     }
 
     public async Task<bool> Update(UpdateUserDTO dto) {  // Used in user controller
-        User? user = await _userRepo.FindWithRolesById(dto.Id);
+        User? user = await _userRepo.FindByIdWithRoles(dto.Id);
 
         if (user is null)
             return false;
