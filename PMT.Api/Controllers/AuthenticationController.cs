@@ -94,7 +94,7 @@ public class AuthenticationController(AuthenticationService _authService) : Cont
             
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
-        
+
         return Ok();
     }
 
@@ -130,8 +130,8 @@ public class AuthenticationController(AuthenticationService _authService) : Cont
 
         IPAddress? ipAddress = Request.HttpContext.Connection.RemoteIpAddress;
         if (ipAddress is null) {
-            Console.WriteLine("AuthController.Refresh() - Unauthorized(BadIpAddress)");
-            return Unauthorized();
+            Console.WriteLine("AuthController.Refresh() - BadRequest(BadIpAddress)");
+            return BadRequest();
         }
 
         if (!Request.Cookies.TryGetValue("refresh_token", out string? refresh_cookie)) {

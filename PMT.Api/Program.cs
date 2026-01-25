@@ -29,12 +29,13 @@ builder.Services.AddHostedService<MonthlyScheduleSeeder>();
 builder.Services.AddTransient<AuthenticationService>();
 builder.Services.AddTransient<RoleService>();
 builder.Services.AddTransient<UserService>();
-builder.Services.AddTransient<ShiftService>();
+builder.Services.AddTransient<UserShiftService>();
 
     // Repositories
 builder.Services.AddTransient<ITokenRepository, TokenRepository>();
 builder.Services.AddTransient<IRoleRepository, RoleRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
+builder.Services.AddTransient<IShiftRepository, ShiftRepository>();
 builder.Services.AddTransient<IUserShiftRepository, UserShiftRepository>();
 
 // Policies

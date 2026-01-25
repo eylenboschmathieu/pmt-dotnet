@@ -63,21 +63,30 @@ public class OverviewDTO {
     public List<OverviewData> Users { get; set; } = [];
 }
 
-public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _roleRepo) {
+public class UserShiftService(IShiftRepository _shiftRepo, IUserShiftRepository _usershiftRepo, IRoleRepository _roleRepo) {
+    private static readonly ShiftTime[] ShiftTimes = [  // We're storing time in UTC, so make sure the shift hours are in UTC time too
+        new ShiftTime { From = new TimeOnly(5, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(8, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(11, 0), Duration = new TimeSpan(3, 0, 0) },
+        new ShiftTime { From = new TimeOnly(14, 0), Duration = new TimeSpan(4, 0, 0) },
+        new ShiftTime { From = new TimeOnly(18, 0), Duration = new TimeSpan(11, 0, 0) }
+    ];
+
     public List<ShiftHours> GetShiftHours() {
-        return _shiftRepo.GetShiftHours().Select(sel => new ShiftHours {
-            From = sel.From,
-            To = sel.From.Add(sel.Duration)
+        return ShiftTimes.Select(e => new ShiftHours {
+            From = e.From,
+            To = e.From.Add(e.Duration)
         }).ToList();
     }
 
-    public async Task<IEnumerable<DateOnly>> GetRequestedMonths() => await _shiftRepo.GetRequestedMonths();
+    public async Task<IEnumerable<DateOnly>> GetRequestedMonths() =>
+        await _usershiftRepo.GetRequestedMonths();
 
     public async Task<List<UserRequestsDTO>> GetUserRequests(int userId, int year, int month) {
         int daysInMonth = DateTime.DaysInMonth(year, month);
         List<UserRequestsDTO> data = new(daysInMonth);
 
-        Dictionary<TimeOnly, int> hours = _shiftRepo.GetShiftHours()
+        Dictionary<TimeOnly, int> hours = ShiftTimes
             .Select(e => e.From)
             .OrderBy(e => e)
             .Select((item, index) => new {
@@ -88,7 +97,7 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         for (int day = 1; day <= daysInMonth; day++) {
             DateOnly date = new(year, month, day);
 
-            IEnumerable<UserShift> userShifts = await _shiftRepo.GetUserRequestsForDay(userId, date);
+            IEnumerable<UserShift> userShifts = await _usershiftRepo.GetUserRequestsForDay(userId, date);
             bool[] flags = new bool[5];
 
             foreach (UserShift userShift in userShifts) {
@@ -107,7 +116,7 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     public async Task<UserConfirmedDTO> GetConfirmedShiftsForUser(int userId, int year, int month) {
         int daysInMonth = DateTime.DaysInMonth(year, month);
         UserConfirmedDTO dto = new UserConfirmedDTO {
-            Shifts = (await _shiftRepo.GetConfirmedShifts(userId, new DateOnly(year, month, 1), new DateOnly(year, month, daysInMonth)))
+            Shifts = (await _usershiftRepo.GetPlannedShifts(userId, new DateOnly(year, month, 1), new DateOnly(year, month, daysInMonth)))
                 .Select(e => new DateTimeSpan() {
                     From = DateTime.SpecifyKind(e.From, DateTimeKind.Utc),
                     To = DateTime.SpecifyKind(e.To, DateTimeKind.Utc)
@@ -121,11 +130,8 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
     }
 
     // Only return months that have yet to happen + the one we're in
-    public async Task<List<MonthsDTO>> GetPlanningMonths() {
-        IEnumerable<MonthsDTO> months = await _shiftRepo.GetPlanningMonths();
-        DateOnly today = DateOnly.FromDateTime(DateTime.Today.ToUniversalTime().AddMonths(-1));
-        return months.Where(e => e.Date > today).ToList();
-    }
+    public async Task<List<MonthsDTO>> GetPlanningMonths() =>
+        await _usershiftRepo.GetPlanningMonths();
 
     public async Task<List<DayPlanningDTO>> GetPlanningForMonth(int year, int month) {
         // See DTO in interface for more information
@@ -137,8 +143,8 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         for (int day = 1; day <= daysInMonth; day++) {
             DayPlanningDTO dayPlanning = new(new DateOnly(year, month, day));
 
-            List<IGrouping<DateTime, UserShift>> userShifts = await _shiftRepo.GetRequestsForDay(dayPlanning.Date);
-            Dictionary<TimeOnly, int> hours = _shiftRepo.GetShiftHours().Select(e => e.From).OrderBy(e => e).Select((item, index) =>
+            List<IGrouping<DateTime, UserShift>> userShifts = await _usershiftRepo.GetRequestsForDay(dayPlanning.Date);
+            Dictionary<TimeOnly, int> hours = ShiftTimes.Select(e => e.From).OrderBy(e => e).Select((item, index) =>
                 new {
                     Key = item,
                     Index = index
@@ -169,19 +175,62 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         return data;
     }
 
-    public async Task<bool> LockMonth(DateOnly date, bool locked) {
-        return await _shiftRepo.LockMonth(date, locked);
+    public async Task<bool> LockMonth(DateOnly date, bool locked) =>
+        await _usershiftRepo.LockMonth(date, locked);
+
+    public async Task<bool> UpdateShiftRequest(UpdateRequestDTO dto) => dto.IsRequested ?
+        await CreateRequest(dto.UserId, dto.Shift) :
+        await DeleteRequest(dto.UserId, dto.Shift);
+
+    private async Task<bool> CreateRequest(int userId, DateTime from) {
+        DateTime now = DateTime.UtcNow;
+        if (now.Day >= 15)
+            now = now.AddMonths(1);
+        
+        if (from.Month <= now.Month)
+            return false;
+
+        Shift? shift = await _shiftRepo.GetAsync(from);
+        
+        if (shift is null) {
+            TimeSpan to = ShiftTimes.Where(e => TimeOnly.FromDateTime(from) == e.From).Select(e => e.Duration).FirstOrDefault();
+            shift = new Shift {
+                From = DateTime.SpecifyKind(from, DateTimeKind.Utc),
+                To = DateTime.SpecifyKind(from.Add(to), DateTimeKind.Utc)
+            };
+            await _shiftRepo.CreateAsync(shift);
+        }
+
+        await _usershiftRepo.CreateAsync(new UserShift {
+            UserId = userId,
+            ShiftId = shift.Id,
+            Planned = false
+        });
+
+        return true;
     }
 
-    public async Task<bool> UpdateShiftRequest(UpdateRequestDTO dto) {
-        if (dto.IsRequested)
-            return await _shiftRepo.CreateRequest(dto.UserId, dto.Shift);
-        else
-            return await _shiftRepo.DeleteRequest(dto.UserId, dto.Shift);
+    private async Task<bool> DeleteRequest(int userId, DateTime from) {
+        Shift? shift = await _shiftRepo.GetAsync(from);
+        if (shift is null)
+            return false;
+
+        UserShift? userShift = await _usershiftRepo.GetAsync(userId, shift.Id);
+        if (userShift is null)
+            return false;
+
+        await _usershiftRepo.DeleteAsync(userShift.Id);
+
+        return true;
     }
 
     public async Task<bool> UpdateShiftPlanning(int shiftId, bool planned) {
-        return await _shiftRepo.UpdatePlanningForShift(shiftId, planned);
+        UserShift? us = await _usershiftRepo.GetAsync(shiftId);
+        if (us is null)
+            return false;
+
+        us.Planned = planned;
+        return await _usershiftRepo.UpdateAsync(us);
     }
 
     // Starting from {date}, going backwards
@@ -194,11 +243,11 @@ public class ShiftService(IUserShiftRepository _shiftRepo, IRoleRepository _role
         DateOnly startMonth = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-1);
         startMonth = new(startMonth.Year, startMonth.Month, 1);
 
-        Dictionary<int, int> totalRequested = await _shiftRepo.GetRequestedHoursForYear(startMonth);
+        Dictionary<int, int> totalRequested = await _usershiftRepo.GetRequestedHoursForYear(startMonth);
 
         OverviewDTO dto = new() {
             Months = GetLast12Months(startMonth),
-            Users = await _shiftRepo.GetOverviewData(startMonth)
+            Users = await _usershiftRepo.GetOverviewData(startMonth)
         };
         
         foreach (var item in dto.Users) {

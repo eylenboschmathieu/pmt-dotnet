@@ -10,15 +10,14 @@ public class ShiftTime {
 }
 
 public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRepository {
-    private static readonly ShiftTime[] ShiftHours = [  // We're storing time in UTC, so make sure the shift hours are in UTC time too
-        new ShiftTime { From = new TimeOnly(5, 0), Duration = new TimeSpan(3, 0, 0) },
-        new ShiftTime { From = new TimeOnly(8, 0), Duration = new TimeSpan(3, 0, 0) },
-        new ShiftTime { From = new TimeOnly(11, 0), Duration = new TimeSpan(3, 0, 0) },
-        new ShiftTime { From = new TimeOnly(14, 0), Duration = new TimeSpan(4, 0, 0) },
-        new ShiftTime { From = new TimeOnly(18, 0), Duration = new TimeSpan(11, 0, 0) }
-    ];
+    public async Task<UserShift?> GetAsync(int id) =>
+        await _dbContext.UserShifts.FindAsync(id);
+    
+    public async Task<UserShift?> GetAsync(int userId, int shiftId) =>
+        await _dbContext.UserShifts.FirstOrDefaultAsync(e => e.UserId == userId && e.ShiftId == shiftId);
 
-    public ShiftTime[] GetShiftHours() => ShiftHours;
+    public async Task<IEnumerable<UserShift>> GetAllAsync() =>
+        await _dbContext.UserShifts.ToListAsync();
 
     public async Task<UserShift> CreateAsync(UserShift entity) {
         _dbContext.UserShifts.Add(entity);
@@ -26,10 +25,6 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
 
         return entity;
     }
-
-    public async Task<UserShift?> GetAsync(int id) => await _dbContext.UserShifts.FindAsync(id);
-    
-    public async Task<IEnumerable<UserShift>> GetAllAsync() => await _dbContext.UserShifts.ToListAsync();
 
     public async Task<bool> UpdateAsync(UserShift entity) {
         bool exists = await _dbContext.UserShifts.AnyAsync(e => e.Id == entity.Id);
@@ -54,7 +49,7 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
         return true;
     }
 
-    public async Task<IEnumerable<Shift>> GetConfirmedShifts(int userId, DateOnly from, DateOnly to) {
+    public async Task<IEnumerable<Shift>> GetPlannedShifts(int userId, DateOnly from, DateOnly to) {
         return await _dbContext.UserShifts
             .Where(e =>
                 e.UserId == userId &&
@@ -73,13 +68,14 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
             now = now.AddMonths(1);
 
         return await _dbContext.PlanningMonths
+            .AsNoTracking()
             .Where(e => !e.Locked && now <= e.Date)
-            .Select(e => e.Date )
+            .Select(e => e.Date)
             .OrderByDescending(e => e)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<MonthsDTO>> GetPlanningMonths() {
+    public async Task<List<MonthsDTO>> GetPlanningMonths() {
         DateOnly now = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
         return await _dbContext.PlanningMonths
@@ -109,72 +105,15 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     }
 
     public async Task<bool> LockMonth(DateOnly date, bool locked) {
-        PlanningMonth pm = await _dbContext.PlanningMonths.Where(e => e.Date == date).FirstAsync();
-
+        PlanningMonth? pm = await _dbContext.PlanningMonths.FirstOrDefaultAsync(e => e.Date == date);
         if (pm is null)
             return false;
 
         pm.Locked = locked;
         _dbContext.PlanningMonths.Update(pm);
         await _dbContext.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> CreateRequest(int userId, DateTime date) {
-        DateTime now = DateTime.UtcNow;
-        if (now.Day >= 15)
-            now = now.AddMonths(1);
-        
-        if (date.Month <= now.Month)
-            return false;
-
-        Shift? shift = await _dbContext.Shifts.Where(e => e.From.Equals(date)).FirstOrDefaultAsync();
-
-        if (shift is null) {
-            TimeSpan to = ShiftHours.Where(e => TimeOnly.FromDateTime(date) == e.From).Select(e => e.Duration).FirstOrDefault();
-            shift = new Shift {
-                From = DateTime.SpecifyKind(date, DateTimeKind.Utc),
-                To = DateTime.SpecifyKind(date.Add(to), DateTimeKind.Utc)
-            };
-            _dbContext.Shifts.Add(shift);
-            await _dbContext.SaveChangesAsync();
-        }
-
-        _dbContext.UserShifts.Add(new UserShift {
-            UserId = userId,
-            ShiftId = shift.Id,
-            Planned = false
-        });
-
-        await _dbContext.SaveChangesAsync();
 
         return true;
-    }
-
-    public async Task<bool> DeleteRequest(int userId, DateTime shift) {
-        UserShift? userShift = await _dbContext.UserShifts
-            .Include(e => e.Shift)
-            .Where(e => e.UserId == userId && e.Shift.From == shift)
-            .FirstOrDefaultAsync();
-
-        if (userShift is null)
-            return false;
-
-        _dbContext.UserShifts.Remove(userShift);
-        return (await _dbContext.SaveChangesAsync()) == 1;
-    }
-
-    public async Task<bool> UpdatePlanningForShift(int shiftId, bool planned) {
-        UserShift? shift = await _dbContext.UserShifts.Where(e => e.Id == shiftId).FirstOrDefaultAsync();
-
-        if (shift is not null) {
-            shift.Planned = planned;
-            _dbContext.UserShifts.Update(shift);
-            return (await _dbContext.SaveChangesAsync()) == 1;
-        } else
-            Console.WriteLine("Shift not found!");
-
-        return false;
     }
 
     public async Task<List<OverviewData>> GetOverviewData(DateOnly date) {
@@ -230,8 +169,8 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
     public async Task<Dictionary<int, int>> GetRequestedHoursForYear(DateOnly date) {
         DateTime to = new DateTime(date.Year, date.Month, 1).AddMonths(1).AddSeconds(-1);
         DateTime from = new DateTime(date.Year, date.Month, 1).AddMonths(-11);
-
-        List<UserShift> data = await _dbContext.UserShifts
+        
+        IEnumerable<UserShift> data = await _dbContext.UserShifts
             .Include(e => e.Shift)
             .Where(e => e.User.Active && e.Shift.From >= from && e.Shift.To <= to).ToListAsync();
             
@@ -241,6 +180,5 @@ public class UserShiftRepository(ApplicationDbContext _dbContext) : IUserShiftRe
                 Hours = sel.Sum(sum => (sum.Shift.To - sum.Shift.From).Hours)
             })
             .ToDictionary(dict => dict.UserId, dict => dict.Hours);
-
     }
 }

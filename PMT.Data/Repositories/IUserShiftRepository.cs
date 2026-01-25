@@ -1,5 +1,3 @@
-using Humanizer;
-
 using PMT.Data.Entities;
 
 namespace PMT.Data.Repositories;
@@ -19,13 +17,15 @@ public class OverviewData {
 
 public interface IUserShiftRepository : IRepository<UserShift> {
     /// <summary>
-    /// Get shift data for this application.
+    /// Get a users' shift.
     /// </summary>
-    /// <returns>An array containing TimeOnly(Start of shift) and TimeSpan(Shift duration) pairs</returns>
-    public ShiftTime[] GetShiftHours();
+    /// <param name="userId">The user this usershift belongs to</param>
+    /// <param name="shiftId">The shift this usershift belongs to</param>
+    /// <returns>A UserShift object if found, null otherwise. </returns>
+    public Task<UserShift?> GetAsync(int userId, int shiftId);
 
     /// <summary>
-    /// <para>Returns enumeration of months for shift requests.</para>
+    /// <para>Get a list of months for shift requests.</para>
     /// Only return the months after this month, and this month iff the day is less than the 15th,
     /// as this is the cutoff date to give management the time to make their planning.
     /// </summary>
@@ -33,14 +33,14 @@ public interface IUserShiftRepository : IRepository<UserShift> {
     public Task<IEnumerable<DateOnly>> GetRequestedMonths();
 
     /// <summary>
-    /// Returns a list of all user shifts for a given day, grouped by each shift.
+    /// Get a list of all user shifts for a given day, grouped by each shift.
     /// </summary>
     /// <param name="date">The date to fetch requests for.</param>
     /// <returns>A list of IGrouping objects containing the shift time as key, and all users' shifts for that shift as value.</returns>
     public Task<List<IGrouping<DateTime, UserShift>>> GetRequestsForDay(DateOnly date);
 
     /// <summary>
-    /// Returns a list of all user shifts for a given user for a given day.
+    /// Get a list of all user shifts for a given user for a given day.
     /// </summary>
     /// <param name="userId">The id of the user</param>
     /// <param name="date">The date of the requests</param>
@@ -48,19 +48,19 @@ public interface IUserShiftRepository : IRepository<UserShift> {
     public Task<IEnumerable<UserShift>> GetUserRequestsForDay(int userId, DateOnly date);
 
     /// <summary>
-    /// Returns a list of shifts that have been planned for a given user.
+    /// Get a list of shifts that have been planned for a given user.
     /// </summary>
     /// <param name="userId">The id of the user</param>
     /// <param name="from">The start date of the shifts</param>
     /// <param name="to">The end date end of the shifts</param>
     /// <returns>An IEnumerable containing Shift objects.</returns>
-    public Task<IEnumerable<Shift>> GetConfirmedShifts(int userId, DateOnly from, DateOnly to);
+    public Task<IEnumerable<Shift>> GetPlannedShifts(int userId, DateOnly from, DateOnly to);
 
     /// <summary>
-    /// Returns a list of months that can be planned for.
+    /// Get a list of months that can be planned for.
     /// </summary>
     /// <returns>An IEnumerable containing DateOnly(Set to the first day of a month) and bool(Whether or not this month has been locked) pairs.</returns>
-    public Task<IEnumerable<MonthsDTO>> GetPlanningMonths();
+    public Task<List<MonthsDTO>> GetPlanningMonths();
 
     /// <summary>
     /// Lock/unlock the planning for a given month.
@@ -71,31 +71,7 @@ public interface IUserShiftRepository : IRepository<UserShift> {
     public Task<bool> LockMonth(DateOnly date, bool locked);
 
     /// <summary>
-    /// Create a new user shift for a given user at the provided time.
-    /// </summary>
-    /// <param name="userId">The id of the user</param>
-    /// <param name="shift">The start time of the shift</param>
-    /// <returns>Returns true if the request was successfully created, false otherwise.</returns>
-    public Task<bool> CreateRequest(int userId, DateTime shift);
-
-    /// <summary>
-    /// Delete a user shift for a given user at the provided time.
-    /// </summary>
-    /// <param name="userId">The id of the user</param>
-    /// <param name="shift">The start time of the shift</param>
-    /// <returns>Returns true of the request was successfully deleted, false otherwise</returns>
-    public Task<bool> DeleteRequest(int userId, DateTime shift);
-
-    /// <summary>
-    /// Modify whether or not a users' shift was accepted.
-    /// </summary>
-    /// <param name="shiftId">The id of the user shift</param>
-    /// <param name="confirm">Whether or not this user shift is confirmed</param>
-    /// <returns>Returns true if the planning was successfully updated, false otherwise.</returns>
-    public Task<bool> UpdatePlanningForShift(int shiftId, bool planned);
-
-    /// <summary>
-    /// Returns list of all active users, with each users containing how many hours they worked each month, for the last 12 months.
+    /// Get a list of all active users, with each users containing how many hours they worked each month, for the last 12 months.
     /// As well as the total worked in the last 12 months.
     /// </summary>
     /// <param name="date">The date to start from, going backwards</param>

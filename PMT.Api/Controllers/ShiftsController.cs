@@ -6,13 +6,11 @@ using PMT.Services;
 namespace PMT.Api.Controllers;
 
 [ApiController]
-public class ShiftsController(IAuthorizationService _authorizationService, ShiftService _shiftService) : ControllerBase {
+public class ShiftsController(IAuthorizationService _authorizationService, UserShiftService _shiftService) : ControllerBase {
     
     [HttpGet("shifts")]
     [Authorize]
-    public IActionResult GetShiftHours() {
-        return Ok(_shiftService.GetShiftHours());
-    }
+    public IActionResult GetShiftHours() => Ok(_shiftService.GetShiftHours());
 
     [HttpGet("requests/dates")]
     [Authorize]
@@ -93,7 +91,7 @@ public class ShiftsController(IAuthorizationService _authorizationService, Shift
     [HttpPut("planning/update")]
     [Authorize(Roles = "Admin, Management")]
     public async Task<IActionResult> UpdatePlanning([FromBody] UpdateShiftPlanningDTO body) {
-        Console.WriteLine($"ShiftsController.UpdatePlanning({body.Planned}, {body.ShiftId})");
+        Console.WriteLine($"ShiftsController.UpdatePlanning(ShiftId: {body.ShiftId}, Planned: {body.Planned})");
         return Ok(await _shiftService.UpdateShiftPlanning(body.ShiftId, body.Planned));
     }
 
