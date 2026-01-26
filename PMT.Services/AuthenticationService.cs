@@ -5,7 +5,6 @@ using System.Security.Claims;
 using System.Text;
 
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -19,6 +18,7 @@ namespace PMT.Services;
 public abstract record Result {
     protected const string ISE = "Internal Server Error";
     public bool Succeeded { get; init; }
+    public HttpStatusCode? HttpStatusCode { get; init; }
     public string? Message { get; init; }
 }
 
@@ -29,55 +29,37 @@ public enum LogoutFailureCode {
 }
 
 public sealed record LogoutResult : Result {
-    public LogoutFailureCode? FailureCode { get; init; }
-
     public static LogoutResult Success() => new() { Succeeded = true };
-    public static LogoutResult Fail(LogoutFailureCode code, string? message = ISE) => new() {
+    public static LogoutResult Fail(HttpStatusCode code, string? message = ISE) => new() {
         Succeeded = false,
-        FailureCode = code,
+        HttpStatusCode = code,
         Message = message
     };
 }
-
-public enum LoginFailureCode {
-    BadToken,
-    MissingIpAddress,
-    GoogleVerification,
-    Unauthorized,
-    UserInactive,
-}
-    
+ 
 public sealed record LoginResult : Result {
     public string? AccessToken { get; init; }
     public RefreshToken? RefreshToken { get; init; }
-    public LoginFailureCode? FailureCode { get; init; }
 
     public static LoginResult Success(string accessToken, RefreshToken refreshToken) => new() {
         Succeeded = true,
         AccessToken = accessToken,
         RefreshToken = refreshToken
     };
-    public static LoginResult Fail(LoginFailureCode code, string? message = ISE) => new() {
+    public static LoginResult Fail(HttpStatusCode code, string? message = ISE) => new() {
         Succeeded = false,
-        FailureCode = code,
+        HttpStatusCode = code,
         Message = message
     };
-}
-
-public enum RefreshTokenFailureCode {
-    Missing,
-    Expired,
-    Revoked
 }
 
 public sealed record AccessResult : Result {
     /// <summary>Access Token</summary>
     public string? AccessToken { get; init; }
-    public RefreshTokenFailureCode? FailureCode { get; init; }
     public static AccessResult Success(string accessToken) => new() { Succeeded = true, AccessToken = accessToken };
-    public static AccessResult Fail(RefreshTokenFailureCode code, string? message = ISE) => new() {
+    public static AccessResult Fail(HttpStatusCode code, string? message = ISE) => new() {
         Succeeded = false,
-        FailureCode = code,
+        HttpStatusCode = code,
         Message = message
     };
 }
@@ -85,26 +67,26 @@ public sealed record AccessResult : Result {
 public sealed record RefreshResult : Result {
     /// <summary>Refresh Token</summary>
     public RefreshToken? RefreshToken { get; init; }
-    public RefreshTokenFailureCode? FailureCode { get; init; }
     public static RefreshResult Success(RefreshToken refreshToken) => new() { Succeeded = true, RefreshToken = refreshToken };
-    public static RefreshResult Fail(RefreshTokenFailureCode code, string? message = ISE) => new() {
+    public static RefreshResult Fail(HttpStatusCode code, string? message = ISE) => new() {
         Succeeded = false,
-        FailureCode = code,
+        HttpStatusCode = code,
         Message = message
     };
 }
 
-public class AuthenticationService(IConfiguration _config,
+public class AuthenticationService(
+        IConfiguration _config,
         ITokenRepository _tokenRepository,
         IUserRepository _userRepository,
         IRoleRepository _roleRepository) {
 
     public async Task<LoginResult> LoginAsync(string? googleIdToken, IPAddress? ipAddress) {
         if (googleIdToken is null || googleIdToken == string.Empty)
-            return LoginResult.Fail(LoginFailureCode.BadToken);
+            return LoginResult.Fail(HttpStatusCode.BadRequest);
 
         if (ipAddress is null)
-            return LoginResult.Fail(LoginFailureCode.MissingIpAddress);
+            return LoginResult.Fail(HttpStatusCode.BadRequest);
 
         //=== Verify user with Google ===//
         GoogleJsonWebSignature.Payload payload;
@@ -114,13 +96,12 @@ public class AuthenticationService(IConfiguration _config,
             });
         }
         catch (InvalidJwtException) {
-            Console.WriteLine("AuthController.Login() - Unauthorized(BadToken)");
-            return LoginResult.Fail(LoginFailureCode.GoogleVerification, "Invalid JWT token"); // Unauthorized
+            return LoginResult.Fail(HttpStatusCode.Forbidden, "Invalid JWT token");
         }
         // ============================= //
 
         if (!payload.EmailVerified)
-            return LoginResult.Fail(LoginFailureCode.GoogleVerification, "Email not verified");
+            return LoginResult.Fail(HttpStatusCode.Forbidden, "Email not verified");
 
         // If the user logged in before, the google id has previously been associated with this user, google id is null otherwise
         User? user = await _userRepository.FindByGoogleId(payload.Subject);
@@ -128,7 +109,7 @@ public class AuthenticationService(IConfiguration _config,
             // First login
             user = await _userRepository.FindByEmail(payload.Email);
             if (user is null)
-                return LoginResult.Fail(LoginFailureCode.Unauthorized, "Email not registered"); // Unauthorized
+                return LoginResult.Fail(HttpStatusCode.Forbidden, "Email not registered"); // Unauthorized
 
             Console.WriteLine($"First login ({payload.Name})!");
             user.Name = payload.Name;
@@ -136,10 +117,8 @@ public class AuthenticationService(IConfiguration _config,
             await _userRepository.UpdateAsync(user);
         }
 
-        if (!user.Active) {
-            Console.WriteLine("AuthController.Login() - Unauthorized(UserInactive)");
-            return LoginResult.Fail(LoginFailureCode.UserInactive);
-        }
+        if (!user.Active)
+            return LoginResult.Fail(HttpStatusCode.Forbidden, "User inactive");
 
         string access_token = await GenerateAccessToken(user);
         RefreshToken refresh_token = await GenerateRefreshToken(user, ipAddress);
@@ -150,13 +129,13 @@ public class AuthenticationService(IConfiguration _config,
     public async Task<LogoutResult> LogoutAsync(string refresh_cookie) {
         RefreshToken? token = await _tokenRepository.FindByCookieAsync(refresh_cookie);
         if (token is null)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenNotFound, "Missing refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Missing refresh token");
 
         if (token.Expires < DateTime.UtcNow)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenExpired, "Expired refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Expired refresh token");
 
         if (token.Revoked is not null)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenRevoked, "Revoked refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Revoked refresh token");
 
         token.Revoked = DateTime.UtcNow;  // Invalidate refresh token
         await _tokenRepository.UpdateAsync(token);
@@ -167,13 +146,13 @@ public class AuthenticationService(IConfiguration _config,
     public async Task<LogoutResult> FullLogoutAsync(string refresh_cookie) {
         RefreshToken? refresh_token = await _tokenRepository.FindByCookieAsync(refresh_cookie);
         if (refresh_token is null)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenNotFound, "Missing refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Missing refresh token");
 
         if (refresh_token.Expires < DateTime.UtcNow)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenExpired, "Expired refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Expired refresh token");
 
         if (refresh_token.Revoked is not null)
-            return LogoutResult.Fail(LogoutFailureCode.RefreshTokenRevoked, "Revoked refresh token");
+            return LogoutResult.Fail(HttpStatusCode.Forbidden, "Revoked refresh token");
 
         await _tokenRepository.RevokeUser(refresh_token.UserId);
 
@@ -183,13 +162,13 @@ public class AuthenticationService(IConfiguration _config,
     public async Task<AccessResult> CreateAccessTokenAsync(string refresh_cookie) {
         RefreshToken? token = await _tokenRepository.FindByCookieAsync(refresh_cookie);
         if (token is null)
-            return AccessResult.Fail(RefreshTokenFailureCode.Missing, "Missing refresh token");
+            return AccessResult.Fail(HttpStatusCode.Forbidden, "Missing refresh token");
 
         if (token.Expires < DateTime.UtcNow)
-            return AccessResult.Fail(RefreshTokenFailureCode.Expired, "Expired refresh token");
+            return AccessResult.Fail(HttpStatusCode.Forbidden, "Expired refresh token");
 
         if (token.Revoked != null)
-            return AccessResult.Fail(RefreshTokenFailureCode.Revoked, "Token already used or revoked");
+            return AccessResult.Fail(HttpStatusCode.Forbidden, "Token already used or revoked");
         
         string access_token = await GenerateAccessToken(token.User);
 
@@ -199,13 +178,13 @@ public class AuthenticationService(IConfiguration _config,
     public async Task<RefreshResult> CreateRefreshTokenAsync(string refresh_cookie, IPAddress ipAddress) {
         RefreshToken? refresh_token = await _tokenRepository.FindByCookieAsync(refresh_cookie);
         if (refresh_token is null)
-            return RefreshResult.Fail(RefreshTokenFailureCode.Missing, "Missing refresh token");
+            return RefreshResult.Fail(HttpStatusCode.Forbidden, "Missing refresh token");
 
         if (refresh_token.Expires < DateTime.UtcNow)
-            return RefreshResult.Fail(RefreshTokenFailureCode.Expired, "Expired refresh token");
+            return RefreshResult.Fail(HttpStatusCode.Forbidden, "Expired refresh token");
 
         if (refresh_token.Revoked != null)
-            return RefreshResult.Fail(RefreshTokenFailureCode.Revoked, "Token already used or revoked");
+            return RefreshResult.Fail(HttpStatusCode.Forbidden, "Token already used or revoked");
 
         RefreshToken new_refresh_token = await GenerateRefreshToken(refresh_token.User, ipAddress);
         refresh_token.Revoked = DateTime.UtcNow;
@@ -215,7 +194,12 @@ public class AuthenticationService(IConfiguration _config,
         return RefreshResult.Success(new_refresh_token);
     }
 
-    /* Returns serialized JwtSecurityTokenHandler containing claims */
+    /// <summary>
+    /// Create a serialized JwtSecurityTokenHandler containing claims.
+    /// </summary>
+    /// <param name="user"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
     private async Task<string> GenerateAccessToken(User user) {
         // 1. Create claims (identity + roles)
         var claims = new List<Claim> {
