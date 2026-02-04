@@ -9,6 +9,7 @@ public interface IRoleRepository : IRepository<Role> {
     /// <param name="user"></param>
     /// <returns>An IEnumerable containing Role objects.</returns>
     public Task<IEnumerable<Role>> FindByUser(User user);
+    public Task<IEnumerable<Role>> FindByUser(int id);
 
     /// <summary>
     /// Find a role by name.
@@ -23,4 +24,18 @@ public interface IRoleRepository : IRepository<Role> {
     /// <param name="roleIds">List of role id's</param>
     /// <returns>An IEnumerable containing role objects.</returns>
     public Task<IEnumerable<Role>> FindByIds(IEnumerable<int> roleIds);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="id"></param>
+    /// <returns></returns>
+    public Task<IEnumerable<Role>> FindByParentId(int id);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="ids"></param>
+    /// <returns></returns>
+    public Task<IEnumerable<Role>> FindByParentIds(IEnumerable<int> ids);
 }

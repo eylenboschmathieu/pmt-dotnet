@@ -46,10 +46,10 @@ public class ApplicationDbContext : DbContext {
         // Seeding
         if (!_testMode) {
             roles.HasData([
-                new() { Id = 1, Name = "Admin" },
-                new() { Id = 2, Name = "Manager" },
-                new() { Id = 3, Name = "Paramedic" },
-                new() { Id = 4, Name = "Intern" }
+                new() { Id = 1, Name = "Admin", DelegationDepth = int.MaxValue },
+                new() { Id = 2, Name = "Management", ParentId = 1, DelegationDepth = 1 },
+                new() { Id = 3, Name = "Paramedic", ParentId = 2, DelegationDepth = 0 },
+                new() { Id = 4, Name = "Intern", ParentId = 2, DelegationDepth = 0 }
             ]);
         }    
     }

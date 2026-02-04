@@ -95,6 +95,7 @@ public class UsersController(IAuthorizationService _authorizationService, ILogge
     [Authorize]
     [HttpPatch("user/update/{userId:int}")]
     public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserDTO body) {
+        // NEED TO UPDATE ACCESS TOKEN WHEN MODIFYING SELF
         Console.WriteLine($"UserController.UpdateUser({userId}, {body.Id}, {body.Name}, {body.Active}, {body.Roles})");
 
         AuthorizationResult authorized = await _authorizationService.AuthorizeAsync(User, body.Id, "CanModify");

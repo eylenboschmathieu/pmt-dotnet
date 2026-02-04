@@ -39,7 +39,7 @@ public class UserDTO {
     public List<Role> Roles { get; set; } = [];
 }
 
-public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
+public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo, ITokenRepository _tokenRepo) {
     public async Task<User?> Create(User user) {
         user.Email = user.Email.ToLower();
         return await _userRepo.CreateAsync(user);
@@ -74,6 +74,8 @@ public class UserService(IUserRepository _userRepo, IRoleRepository _roleRepo) {
         user.Active = dto.Active;
         user.Name = dto.Name;
         user.Roles = (await _roleRepo.FindByIds(dto.Roles)).ToList();
+
+        await _tokenRepo.RevokeUser(user.Id);  // Updating a user means its roles could have changed. Force them to log in again to refresh access token
 
         return await _userRepo.UpdateAsync(user);
     }

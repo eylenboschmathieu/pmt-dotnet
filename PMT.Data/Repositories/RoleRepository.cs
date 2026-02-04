@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 
 using PMT.Data.Entities;
 
@@ -37,15 +38,21 @@ public class RoleRepository(ApplicationDbContext _dbContext) : IRoleRepository {
         return true;
     }
 
-    public async Task<IEnumerable<Role>> FindByUser(User user) {
-        return await _dbContext.Roles.Where(r => r.Users.Any(u => u.Id == user.Id)).ToListAsync();
-    }
+    public async Task<IEnumerable<Role>> FindByUser(User user) =>
+        await _dbContext.Roles.Where(r => r.Users.Any(u => u.Id == user.Id)).ToListAsync();
 
-    public async Task<Role?> FindByName(string name) {
-        return await _dbContext.Roles.Where(e => e.Name == name).FirstAsync();
-    }
+    public async Task<IEnumerable<Role>> FindByUser(int id) =>
+        await _dbContext.Roles.Where(r => r.Users.Any(u => u.Id == id)).ToListAsync();
 
-    public async Task<IEnumerable<Role>> FindByIds(IEnumerable<int> roleIds) {
-        return await _dbContext.Roles.Where(e => roleIds.Contains(e.Id)).ToListAsync();
-    }
+    public async Task<Role?> FindByName(string name) =>
+        await _dbContext.Roles.Where(e => e.Name == name).FirstAsync();
+
+    public async Task<IEnumerable<Role>> FindByIds(IEnumerable<int> roleIds) =>
+        await _dbContext.Roles.Where(e => roleIds.Contains(e.Id)).ToListAsync();
+
+    public async Task<IEnumerable<Role>> FindByParentId(int id) =>
+        await _dbContext.Roles.Where(e => e.ParentId!.Value == id).ToListAsync();
+
+    public async Task<IEnumerable<Role>> FindByParentIds(IEnumerable<int> ids) =>
+        await _dbContext.Roles.Where(e => ids.Contains(e.ParentId!.Value)).ToListAsync();
 }
