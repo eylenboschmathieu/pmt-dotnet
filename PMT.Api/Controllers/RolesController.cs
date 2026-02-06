@@ -11,7 +11,6 @@ namespace PMT.Api.Controllers;
 public class RoleDTO {
     public int Id { get; set; }
     public string Name { get; set; } = null!;
-    public int? ParentId { get; set; }
 }
 
 [ApiController]
@@ -25,8 +24,7 @@ public class RolesController(RoleService _roleService) : ControllerBase {
             
             IEnumerable<RoleDTO> children = (await _roleService.FindChildRoles(roles)).Select(e => new RoleDTO {
                 Id = e.Id,
-                Name = e.Name,
-                ParentId = e.ParentId
+                Name = e.Name
             });
             
             return Ok(children);
