@@ -28,13 +28,13 @@ public interface IUserRepository : IRepository<User> {
     public Task<bool> SetActive(int userId, bool active);
 
     /// <summary>
-    /// Returns list of users.
+    /// Returns list of active users whose name is not null, including their roles.
     /// </summary>
     /// <returns>An IEnumerable of user objects.</returns>
     public Task<IEnumerable<User>> FindSelect();
 
     /// <summary>
-    /// Returns all information about a user.
+    /// Returns all information about a user. This includes their roles, and who created the user.
     /// </summary>
     /// <param name="userId"></param>
     /// <returns>A user, or null if the user isn't found.</returns>
