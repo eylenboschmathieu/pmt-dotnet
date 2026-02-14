@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PMT.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ba63990b3a8a39f06d6d2e9c8493b091b661698f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1b55693ee982ab407511400a555dada5686ccb14")]
 [assembly: System.Reflection.AssemblyProductAttribute("PMT.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PMT.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

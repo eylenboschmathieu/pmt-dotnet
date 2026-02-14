@@ -14,6 +14,7 @@ using PMT.Api.HostedServices;
 using PMT.Api.Policies;
 using Microsoft.AspNetCore.Authorization;
 using PMT.Data.Entities;
+using System.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -140,7 +141,8 @@ using (var scope = app.Services.CreateScope()) {
 
             await userService.Create(user);
         }
-    }
+    } else
+        throw new SecurityException("Missing root admin account");
 }
 
 // Configure the HTTP request pipeline.
